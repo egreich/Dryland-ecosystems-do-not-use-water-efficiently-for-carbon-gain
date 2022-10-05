@@ -11,9 +11,9 @@ get_SAM_inits <- function(dataIN, key){
   # that link the Y variables back to covariates of interest.
   # NOTE: Kym did this to only test growing season response variables (4/1 to 10/31 for each year)
   YIN = dataIN %>%
-    select(c("date","year","month","day","B_T", "GPP")) %>% # select response variable of interest
-    mutate(WUE_test = GPP/B_T) %>% # test WUE
-    mutate(WUE_test =ifelse(is.na(WUE_test), 0, WUE_test)) %>%
+    select(c("date","year","month","day","B_WUE.pred")) %>% # select response variable of interest
+    #mutate(WUE_test = GPP/B_T) %>% # test WUE
+    #mutate(WUE_test =ifelse(is.na(WUE_test), 0, WUE_test)) %>%
     rowid_to_column("dayind") # dayind: index to link the growing season Y variables back to the appropriate 
   # row in the covariate data set
   
@@ -34,7 +34,7 @@ get_SAM_inits <- function(dataIN, key){
   Yday = YIN$dayind
   
   # Change Y to the column for the response variable of interest (T or WUE) 
-  Y  = YIN$WUE_test
+  Y  = YIN$B_WUE.pred
   
   # jIND file provides indices to calculate interactions between covariates
   # Basically a matrix version of X2, defined later

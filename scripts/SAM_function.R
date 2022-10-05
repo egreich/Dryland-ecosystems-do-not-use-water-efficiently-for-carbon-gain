@@ -16,9 +16,9 @@ SAM_WUE <- function(dataIN, key){
   # that link the Y variables back to covariates of interest.
   # NOTE: Kym did this to only test growing season response variables (4/1 to 10/31 for each year)
   YIN = dataIN %>%
-    select(c("date","year","month","day","B_T", "GPP")) %>% # select response variable of interest
-    mutate(WUE_test = GPP/B_T) %>% # test WUE
-    mutate(WUE_test =ifelse(is.na(WUE_test), 0, WUE_test)) %>%
+    select(c("date","year","month","day","B_WUE.pred")) %>% # select response variable of interest
+    #mutate(WUE_test = GPP/B_T) %>% # test WUE
+    #mutate(WUE_test =ifelse(is.na(WUE_test), 0, WUE_test)) %>%
     rowid_to_column("dayind") # dayind: index to link the growing season Y variables back to the appropriate 
   # row in the covariate data set
   
@@ -39,7 +39,7 @@ SAM_WUE <- function(dataIN, key){
   Yday = YIN$dayind
   
   # Change Y to the column for the response variable of interest (T or WUE) 
-  Y  = YIN$WUE_test
+  Y  = YIN$B_WUE.pred
   
   # jIND file provides indices to calculate interactions between covariates
   # Basically a matrix version of X2, defined later
@@ -109,7 +109,7 @@ SAM_WUE <- function(dataIN, key){
   # parameters to track
   params = c("deviance","beta0","beta1","beta1a",
              "beta2", "wT","wV","wP","wSs",
-             "wP.weekly","wP.monthly", "sig")
+             "wP.weekly","wP.monthly","dYdX","sig")
   
   zc1 = coda.samples(jm1.b,variable.names=params,
                      n.iter=n.iter,thin = thin)
@@ -161,6 +161,6 @@ SAM_WUE <- function(dataIN, key){
   save(saved.state, file=initfilename)
   
   
-  
-  sum_tab # This will return the summary as the output in row form
+  #####################################################################
+  return(sum_tab) # This will return the summary as the output in row form
 }

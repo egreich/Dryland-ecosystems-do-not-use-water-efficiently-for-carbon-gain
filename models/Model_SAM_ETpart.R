@@ -16,12 +16,12 @@ model{
     # Replicated data for evaluating model fit
     Y.rep[i] ~ dnorm(mu[i],tau) 
     # Regression (mean) model
-    mu[i] <- beta0 + main.effects[i] #+ squared.terms[i] + interactions[i] 
+    mu[i] <- beta0 + main.effects[i] + squared.terms[i] + interactions[i] 
     
     # Define parts involving main effects, quadratic effects, and 2-way interactions
     main.effects[i]  <- sum(X.effect[,i])
     interactions[i]  <- sum(sum.XX.int[,i])
-    squared.terms[i] <- sum(XX.int[,i])
+    squared.terms[i] <- sum(X2.effect[,i])
     
     # Define components of main.effects, squared.terms, and interactions:
     # Main effect parts:
