@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 SAM_WUE <- function(dataIN, key){
   
   # Create necessary folders if they do not already exist
@@ -10,6 +12,7 @@ SAM_WUE <- function(dataIN, key){
   zcfilename <- paste("./output_coda/zc_", key, ".RData", sep = "")
   sumfilename <- paste("./output_coda/sum_", key, ".csv", sep = "")
   quanfilename <- paste("./output_coda/quan_", key, ".csv", sep = "")
+  dffilename <- paste("./output_dfs/df_sum_", key, ".csv", sep = "")
   
   # Make the response variable file of interest. This file includes 
   # growing-season response (Y) variables of interest along with indices 
@@ -42,11 +45,12 @@ SAM_WUE <- function(dataIN, key){
   Y  = YIN$B_WUE.pred
   
   # jIND file provides indices to calculate interactions between covariates
-  # Basically a matrix version of X2, defined later
-  #X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,5], X1[,2]*X1[,3], X1[,2]*X1[,5], X1[,3]*X1[,5]) 
-  jIND <- data.frame(j = c(1:6),
-                     ID1 = c(1,1,1,2,2,3),
-                     ID2 = c(2,3,5,3,5,5))
+  # Basically a matrix version of X2, defined in SAM_initialize_function
+  # X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,5], X1[,1]*X1[,6], X1[,2]*X1[,3], X1[,2]*X1[,5], X1[,2]*X1[,6], 
+  # X1[,3]*X1[,5], X1[,3]*X1[,6], X1[,5]*X1[,6])
+  jIND <- data.frame(j = c(1:10),
+                     ID1 = c(1,1,1,1,2,2,2,3,3,5),
+                     ID2 = c(2,3,5,6,3,5,6,5,6,6))
   
   # Choose the starting index. This is an index for a row in the Y data file. 
   # The value in the indexed row should be greater than 1 to accommodate 
@@ -60,7 +64,7 @@ SAM_WUE <- function(dataIN, key){
               Nend = Nend, 
               Nlag = 7, 
               NlagP = 9, 
-              Nparms = 5, # Nparms is the number of driving variables included to calculate main effects
+              Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
               Yday = YIN$dayind, # Choose column in YIN that provides indices linking response variables with covariates
               ID1 = jIND[,2], 
               ID2 = jIND[,3],
@@ -71,6 +75,7 @@ SAM_WUE <- function(dataIN, key){
               P = as.vector(scale(dataIN$P,center=TRUE,scale=TRUE)),
               PAR = as.vector(scale(dataIN$PPFD_IN,center=TRUE,scale=TRUE)),
               Sshall = as.vector(scale(dataIN$S,center=TRUE,scale=TRUE)),
+              Sdeep = as.vector(scale(dataIN$Sdeep,center=TRUE,scale=TRUE)),
               P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times for precip
               P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140)) #start times for precip
   
@@ -81,7 +86,6 @@ SAM_WUE <- function(dataIN, key){
    #####################################################################
   # Part 2: Initialize JAGS Model
   n.adapt = 500 # adjust this number (and n.iter) as appropriate 
-  n.iter = 10000
   n.chains = 3
   
   start<-proc.time() # set start time
@@ -101,15 +105,16 @@ SAM_WUE <- function(dataIN, key){
   # converge while monitoring variables included in "zc1"
   # below before monitoring dYdX (zc1dYdX), Xant (zc1X), or Y (zc1Y)
   
-  #n.iter = 40000
-  n.iter = 10000
-  #thin = 40
-  thin = 1
+  
+  n.iter = 25000
+  thin = 40
   
   # parameters to track
-  params = c("deviance","beta0","beta1","beta1a",
-             "beta2", "wT","wV","wP","wSs",
-             "wP.weekly","wP.monthly","dYdX","sig")
+  # please keep in alphabetical order
+  params = c("Y", "Y.rep","beta0","beta1","beta1a",
+             "beta2","deviance","dYdX","wP","wSd","wSs","wT","wV",
+             "wP.monthly","wP.weekly",#"wV.monthly","wV.weekly",
+             "sig")
   
   zc1 = coda.samples(jm1.b,variable.names=params,
                      n.iter=n.iter,thin = thin)
@@ -120,7 +125,22 @@ SAM_WUE <- function(dataIN, key){
   # Part 4: Save coda summary
   
   # Summarizing chains via Mike Fell's code
-  sum_tab <- coda.fast(chains=3, burn.in=0, thin=1, coda=zc1)
+  df_sum <- coda.fast(chains=3, burn.in=0, thin=1, coda=zc1)
+  df_sum <- rownames_to_column(df_sum, "var")
+  df_sum <- df_sum %>% # make index column
+    mutate(ID = sub('.*\\[(.*)\\]', '\\1', df_sum$var))
+  df_sum <- df_sum %>% # separate index column into 1st and 2nd dimension
+    mutate(ID1 = sub('(.*)\\,.*', '\\1', df_sum$ID),
+           ID2 = sub('.*\\,(.*)', '\\1', df_sum$ID))
+  df_sum$ID2 <- ifelse(!grepl(',', df_sum$ID), NA, df_sum$ID2) # get rid of ID2 if there's no 2nd dimension
+  df_sum$ID1 <- ifelse(!grepl('[^[:alpha:]]', df_sum$ID), 1, df_sum$ID1) # make ID1=1 if there is only 1 instance
+  df_sum <- df_sum %>% 
+    mutate(var = sub('(.*)\\[.*', '\\1', df_sum$var)) # get rid of numbers in var col
+  df_sum <- df_sum %>% 
+    select("var","ID1","ID2","mean","median","sd","pc2.5","pc97.5") %>% #reorder columns, drop ID
+    mutate(site = key)
+    
+  write.csv(df_sum, dffilename)
   
   # Save output
   sumzc <- summary(zc1)
@@ -129,38 +149,24 @@ SAM_WUE <- function(dataIN, key){
   quanstats <- sumzc[["quantiles"]] # save coda quantiles in table form
   write.csv(quanstats, file = quanfilename)
   
+  
   #####################################################################
   # Part 5: Save inits for future runs
   
   # inits to save
   init_names = c("beta0","beta1","beta1a","beta2", "sig")
-  
-  # variables to remove
-  get_remove_index <- function(to_keep, list){
-    out_list <- c()
-    for(j in c(1:length(list))){
-      if(list[j] %in% to_keep){
-        out_list[j] = NA
-      } else{
-        out_list[j] = j
-      }
-    }
-    out_list <- out_list[!is.na(out_list)]
-    out_list
-  }
-  
+
+  # find which variables in the coda object to remove
   remove_vars = get_remove_index(init_names, params)
   
   #extract final iteration to reinitialize model if needed
   newinits<-initfind(zc1, OpenBUGS = F)
-  #newinits[[1]]
   #remove non-root node variables
   saved.state <- removevars(initsin = newinits, variables=remove_vars) # remove non-variable nodes
   #check both items in list
-  #saved.state[[1]]
   save(saved.state, file=initfilename)
   
   
   #####################################################################
-  return(sum_tab) # This will return the summary as the output in row form
+
 }

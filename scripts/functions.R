@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 # Functions for data cleaning
 
 # Function to convert dates to water years
@@ -225,5 +227,6 @@ assign_block <- function(input, window) {
   print(output)
   
 }
+
 
 

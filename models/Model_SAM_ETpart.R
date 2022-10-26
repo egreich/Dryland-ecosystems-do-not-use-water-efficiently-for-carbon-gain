@@ -1,13 +1,13 @@
 model{
-  # Placeholder for initial part of data set. 
-  for(i in 1:(Nstart-1)){
-    mu[i] <- 0
-    Y.rep[i] <- 0
-    
-    for(j in 1:7){
-      X[j,i] <- 0
-    }
-  }
+  # Placeholder for initial part of data set. Note: might need to add this back in
+  # for(i in 1:(Nstart-1)){
+  #   mu[i] <- 0
+  #   Y.rep[i] <- 0
+  #   
+  #   for(j in 1:7){
+  #     X[j,i] <- 0
+  #   }
+  # }
   
   for(i in Nstart:Nend){
     # Likelihood of observed Y values (defined in script file)    
@@ -36,7 +36,7 @@ model{
     
     # Two-way interaction terms:
     for(j in 1:jlength){
-      XX.int[j,i] <- beta2[j,1]*X[ID1[j],i]*X[ID2[j],i]
+      XX.int[j,i] <- beta2[j,1]*X[ID1[j],i]*X[ID2[j],i] # check if beta2 needs the ,1 (not needed)
       sum.XX.int[j,i] <- sum(XX.int[j,i])
     }
     
@@ -49,6 +49,7 @@ model{
     X[3,i] <- PPTant[i]
     X[4,i] <- PAR[Yday[i]]    ## not included in interactions
     X[5,i] <- Sshall_ant[i]
+    X[6,i] <- Sdeep_ant[i]
     
     # Computed antecedent values. 
     # PAR is assumed to instantaneously affect ecosystem fluxes, 
@@ -57,6 +58,7 @@ model{
     TAant[i]      <- sum(Tairtemp[i,])
     PPTant[i]     <- sum(PPTtemp[i,])
     Sshall_ant[i] <- sum(Sshalltemp[i,])
+    Sdeep_ant[i] <- sum(Sdeeptemp[i,])
     
     # Intermediate weighted values of covariates with influence over 
     # flux over the past few days (or months for ppt)
@@ -64,24 +66,31 @@ model{
       VPDtemp[i,j]    <- wV[j]*VPD[Yday[i]-j+1] # linking two datasets together
       Tairtemp[i,j]     <- wT[j]*Tair[Yday[i]-j+1]
       Sshalltemp[i,j] <- wSs[j]*Sshall[Yday[i]-j+1]
+      Sdeeptemp[i,j] <- wSd[j]*Sdeep[Yday[i]-j+1]
     }
     # For precip (ppt):
     for(j in 1:NlagP){
       PPTtemp[i,j] <- wP[j]*P_temp[i,j] # P_temp is total precip during that block period
       P_temp[i,j] <- sum(P[(Yday[i]-P1[j]):(Yday[i]-P2[j])])
+      
+      #VPDtemp[i,j] <- wV[j]*V_temp[i,j] # P_temp is total precip during that block period
+      #V_temp[i,j] <- sum(VPD[(Yday[i]-P1[j]):(Yday[i]-P2[j])])
     }
     
     # Calculate net sensitivities (derivative) -- derived quantities
-    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPDant[i] + beta2[1,1]*TAant[i] + beta2[2,1]*PPTant[i] + beta2[3,1]*Sshall_ant[i]
-    dYdT[i]   <- beta1[2] + 2*beta1a[2]*TAant[i] + beta2[1,1]*VPDant[i] + beta2[5,1]*PPTant[i] + beta2[6,1]*Sshall_ant[i]
-    dYdP[i]   <- beta1[3] + beta2[2,1]*VPDant[i] + beta2[5,1]*TAant[i]
-    dYdSs[i]  <- beta1[4] + beta2[3,1]*VPDant[i] + beta2[6,1]*TAant[i]
+    
+    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPDant[i] + beta2[1,1]*TAant[i] + beta2[2,1]*PPTant[i] + beta2[3,1]*Sshall_ant[i] + beta2[4,1]*Sdeep_ant[i]
+    dYdT[i]   <- beta1[2] + 2*beta1a[2]*TAant[i] + beta2[1,1]*VPDant[i] + beta2[5,1]*PPTant[i] + beta2[6,1]*Sshall_ant[i] + beta2[7,1]*Sdeep_ant[i]
+    dYdP[i]   <- beta1[3] + beta2[2,1]*VPDant[i] + beta2[5,1]*TAant[i] + beta2[8,1]*Sshall_ant[i] + beta2[9,1]*Sdeep_ant[i]
+    dYdSs[i]  <- beta1[4] + beta2[3,1]*VPDant[i] + beta2[6,1]*TAant[i] + beta2[8,1]*PPTant[i] + beta2[10,1]*Sdeep_ant[i]
+    dYdSd[i]  <- beta1[5] + beta2[4,1]*VPDant[i] + beta2[7,1]*TAant[i] + beta2[9,1]*PPTant[i] + beta2[10,1]*Sshall_ant[i]
     
     # Put all net sensitivities into one array, for easy monitoring
     dYdX[i,1] <- dYdVPD[i]
     dYdX[i,2] <- dYdT[i]
     dYdX[i,3] <- dYdP[i]
     dYdX[i,4] <- dYdSs[i]
+    dYdX[i,5] <- dYdSd[i]
   }  
   
   
@@ -112,30 +121,38 @@ model{
     dV[j]    ~ dgamma(1,1)
     dT[j]    ~ dgamma(1,1)
     dSs[j]   ~ dgamma(1,1)
+    dSd[j]   ~ dgamma(1,1)
     
     # Compute normalized weights:
     wV[j]    <- dV[j]/sum(dV[])
     wT[j]    <- dT[j]/sum(dT[])
     wSs[j]   <- dSs[j]/sum(dSs[])
+    wSd[j]   <- dSd[j]/sum(dSd[])
   }
   
   # Priors for importance weights for precipitation:
   for(j in 1:(NlagP-1)){
     dP[j] ~ dgamma(1,1)
-    wP[j+1] <- dP[j]/sum(dP[])      
+    wP[j+1] <- dP[j]/sum(dP[])  
+    
+    #dV[j] ~ dgamma(1,1)
+    #wV[j+1] <- dV[j]/sum(dV[])  
   }
   # Precipitation in first time step i assumed to have no effect - 
   # moisture effects incorporated via soil water of current week
   wP[1] <- 0    
+  #wV[1] <- 0  
   
   # Rearrange precip weights into weights at the weekly and monthly scales.
   for(j in 1:4){
     wP.weekly[j] <- wP[j]
+    #wV.weekly[j] <- wV[j]
   }
   
   for(j in 1:6){
     wP.monthly[j] <- equals(j,1)*sum(wP[1:4]) + (1-equals(j,1))*wP[j+3] # a weight that sums over the first 4 weeks, then gets the monthly weights from before that 
-  }
+    #wV.monthly[j] <- equals(j,1)*sum(wV[1:4]) + (1-equals(j,1))*wV[j+3]
+    }
   
   #Prior for standard deviation in data likelihood 
   tau <- pow(sig,-2)

@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 get_SAM_inits <- function(dataIN, key){
   
   # Create necessary folders if they do not already exist
@@ -33,15 +35,17 @@ get_SAM_inits <- function(dataIN, key){
   # Choose column in YIN that provides indices linking response variables with covariates
   Yday = YIN$dayind
   
+  
   # Change Y to the column for the response variable of interest (T or WUE) 
   Y  = YIN$B_WUE.pred
   
   # jIND file provides indices to calculate interactions between covariates
   # Basically a matrix version of X2, defined later
-  #X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,5], X1[,2]*X1[,3], X1[,2]*X1[,5], X1[,3]*X1[,5]) 
-  jIND <- data.frame(j = c(1:6),
-                     ID1 = c(1,1,1,2,2,3),
-                     ID2 = c(2,3,5,3,5,5))
+  # X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,5], X1[,1]*X1[,6], X1[,2]*X1[,3], X1[,2]*X1[,5], X1[,2]*X1[,6], 
+  # X1[,3]*X1[,5], X1[,3]*X1[,6], X1[,5]*X1[,6])
+  jIND <- data.frame(j = c(1:10),
+                     ID1 = c(1,1,1,1,2,2,2,3,3,5),
+                     ID2 = c(2,3,5,6,3,5,6,5,6,6))
   
   # Choose the starting index. This is an index for a row in the Y data file. 
   # The value in the indexed row should be greater than 1 to accommodate 
@@ -55,7 +59,7 @@ get_SAM_inits <- function(dataIN, key){
               Nend = Nend, 
               Nlag = 7, 
               NlagP = 9, 
-              Nparms = 5, # Nparms is the number of driving variables included to calculate main effects
+              Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
               Yday = YIN$dayind, # Choose column in YIN that provides indices linking response variables with covariates
               ID1 = jIND[,2], 
               ID2 = jIND[,3],
@@ -66,6 +70,7 @@ get_SAM_inits <- function(dataIN, key){
               P = as.vector(scale(dataIN$P,center=TRUE,scale=TRUE)),
               PAR = as.vector(scale(dataIN$PPFD_IN,center=TRUE,scale=TRUE)),
               Sshall = as.vector(scale(dataIN$S,center=TRUE,scale=TRUE)),
+              Sdeep = as.vector(scale(dataIN$Sdeep,center=TRUE,scale=TRUE)),
               P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times
               P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140)) #start times
   
@@ -76,26 +81,30 @@ get_SAM_inits <- function(dataIN, key){
               data$Tair[Yday[Nstart:Nend]], #2
               data$P[Yday[Nstart:Nend]], #3
               data$PAR[Yday[Nstart:Nend]], #4
-              data$Sshall[Yday[Nstart:Nend]]) #5
+              data$Sshall[Yday[Nstart:Nend]], #5
+              data$Sdeep[Yday[Nstart:Nend]]) #6
   
   # Notes: The code below is indexed numerically, which you will have to pay attention to as you change covariates of interest
   # Squared terms calculated for VPD and Tair
   X1a = cbind(X1[,1]^2, X1[,2]^2) 
   # Put all covariates together;
   # Interactions incorporated into linear model used to estimate initial values
-  X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,5], X1[,2]*X1[,3], X1[,2]*X1[,5], X1[,3]*X1[,5]) 
+  X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,5], X1[,1]*X1[,6], X1[,2]*X1[,3], X1[,2]*X1[,5], X1[,2]*X1[,6], 
+              X1[,3]*X1[,5], X1[,3]*X1[,6], X1[,5]*X1[,6])
   # Fit simple linear model
-  fit <- lm(Y[Nstart:Nend] ~ X1[,1] + X1[,2] + X1[,3] + X1[,4] + X1[,5] + X1a[,1] + 
-              X1a[,2] + X2[,1] + X2[,2]  + X2[,3]  + X2[,4]  + X2[,5]  + X2[,6])
+  fit <- lm(Y[Nstart:Nend] ~ X1[,1] + X1[,2] + X1[,3] + X1[,4] + X1[,5] + X1[,6] + # main effects
+              X1a[,1] + X1a[,2] + # squared
+              X2[,1] + X2[,2] + X2[,3] + X2[,4] + X2[,5] + X2[,6] + X2[,7] + X2[,8] + X2[,9] + X2[,10]) # interactions
   # Extract coefficient estimates:
   beta0  = fit$coefficients[1] # the intercept
-  beta1  = fit$coefficients[2:6] # main effects
-  beta1a = fit$coefficients[7:8] # squared effects
+  beta1  = fit$coefficients[2:7] # main effects
+  beta1a = fit$coefficients[8:9] # squared effects
   
-  beta2 <- matrix(data = 0, nrow = 6, ncol = 1)
-  beta2[1:3,1]   = as.numeric(fit$coefficients[9:11]) # X1[,1] interactions
-  beta2[4:5,1]   = as.numeric(fit$coefficients[12:13]) # X1[,2] interactions
-  beta2[6,1]   = as.numeric(fit$coefficients[14]) # X1[,3] interactions
+  beta2 <- matrix(data = 0, nrow = 10, ncol = 1)
+  beta2[1:4,1]   = as.numeric(fit$coefficients[10:13]) # X1[,1] interactions (VPD with Tair, P, and soil moistures)
+  beta2[5:7,1]   = as.numeric(fit$coefficients[14:16]) # X1[,2] interactions (Tair with P and soil moistures)
+  beta2[8:9,1]   = as.numeric(fit$coefficients[17:18]) # X1[,3] interactions (P and soil moistures)
+  beta2[10,1]   = as.numeric(fit$coefficients[19]) # X1[,5]*X1[,6] interaction (soil moistures)
   
   # Create initials based on the above estimates:
   inits = list(list(beta0 = beta0, beta1 = beta1, beta1a = beta1a, beta2 = beta2, sig = 1), #pink
@@ -104,8 +113,7 @@ get_SAM_inits <- function(dataIN, key){
   
   #####################################################################
   # Part 2: Initialize JAGS Model
-  n.adapt = 500 # adjust this number (and n.iter) as appropriate 
-  n.iter = 1000
+  n.adapt = 500
   n.chains = 3
   
   start<-proc.time()
@@ -132,8 +140,7 @@ get_SAM_inits <- function(dataIN, key){
   
   # parameters to track
   params = c("deviance","beta0","beta1","beta1a",
-             "beta2", "wT","wV","wP","wSs",
-             "wP.weekly","wP.monthly", "sig")
+             "beta2", "sig")
 
   zc1 = coda.samples(jm1.b,variable.names=params,
                      n.iter=n.iter,thin = thin)
@@ -142,7 +149,7 @@ get_SAM_inits <- function(dataIN, key){
   # Part 4: Check convergence
   
   #plotting to visualize chains, diagnose convergence issues, etc
-  mcmcplot(zc1)
+  #mcmcplot(zc1)
   
   #check convergence
   gel<-gelman.diag(zc1, multivariate = F)
@@ -152,31 +159,22 @@ get_SAM_inits <- function(dataIN, key){
   # Part 5: Save inits for future runs
   
   # inits to save
-  init_names = c("beta0","beta1","beta1a","beta2", "sig")
+  #init_names = c("beta0","beta1","beta1a","beta2", "sig")
   
-  # variables to remove
-  get_remove_index <- function(to_keep, list){
-    out_list <- c()
-    for(j in c(1:length(list))){
-      if(list[j] %in% to_keep){
-        out_list[j] = NA
-      } else{
-        out_list[j] = j
-      }
-    }
-    out_list <- out_list[!is.na(out_list)]
-    out_list
-  }
+  # find which variables in the coda object to remove
+  #remove_vars = get_remove_index(init_names, params)
   
-  remove_vars = get_remove_index(init_names, params)
-  
-  #extract final iteration to reinitialize model if needed
+  #extract final iteration to reinitialize model
   newinits<-initfind(zc1, OpenBUGS = F)
   #newinits[[1]]
-  #remove non-root node variables
-  saved.state <- removevars(initsin = newinits, variables=remove_vars) # remove non-variable nodes
-  #check both items in list
+  
+  
+  #saved.state <- removevars(initsin = newinits, variables = remove_vars) # remove non-root nodes
+  saved.state <- newinits # if nothing needs to be removed
+  
+  #check items in list
   #saved.state[[1]]
+  
   save(saved.state, file=initfilename) 
   
 }

@@ -4,6 +4,25 @@
 ######################### Prepare the data to run the model ###############
 ############################################################################
 
+### Install and load packages and functions ###
+
+# Run this if necessary packages are not installed
+if(!"rjags" %in% installed.packages()) {
+  install.packages("rjags")
+}
+if(!"mcmcplots" %in% installed.packages()) {
+  install.packages("mcmcplots")
+}
+if(!"tidyverse" %in% installed.packages()) {
+  install.packages("tidyverse")
+}
+if(!"postjags" %in% installed.packages()) {
+  devtools::install_github("fellmk/PostJAGS/postjags")
+}
+if(!"coda4dummies" %in% installed.packages()) {
+  devtools::install_github("egreich/coda4dummies")
+}
+
 ################# Call functions
 library(tidyverse)
 source("./scripts/functions.R") # for assign_block function
