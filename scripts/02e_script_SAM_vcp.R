@@ -27,22 +27,18 @@ dataIN_WUE = read.csv("./clean_data/d_B_wue_vcp.csv")
 
 dataIN <- left_join(dataIN_T, dataIN_WUE)
 
-dataIN1 <- dataIN %>%
-  filter(year < 2013)
-dataIN2 <- dataIN %>%
-  filter(year > 2013)
+# dataIN <- dataIN %>%
+#   filter(year %in% c(2012,2013,2014))
 
 ### Get initials ###
 # Run the below function to get initial estimates
 # Note: If you've already run the model, you do not need to do this
 # Note: Do not run this function using an HPC, 
 #unless you comment out the mcmcplot function in the function code
-get_SAM_inits(dataIN1, "vcp1")
-get_SAM_inits(dataIN2, "vcp2")
+get_SAM_inits(dataIN, "vcp")
 
 ### Run the model ###
-SAM_WUE(dataIN1, "vcp1")
-SAM_WUE(dataIN2, "vcp2")
+SAM_WUE(dataIN, "vcp")
 
 ### diagnostics
 

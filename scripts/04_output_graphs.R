@@ -22,24 +22,15 @@ sum_IN_seg = read.csv("./output_dfs/df_sum_seg.csv")
 sum_IN_ses = read.csv("./output_dfs/df_sum_ses.csv")
 sum_IN_wjs = read.csv("./output_dfs/df_sum_wjs.csv")
 sum_IN_mpj = read.csv("./output_dfs/df_sum_mpj.csv")
-sum_IN_vcp1 = read.csv("./output_dfs/df_sum_vcp1.csv")
-sum_IN_vcp2 = read.csv("./output_dfs/df_sum_vcp2.csv")
-# sum_IN_vcp = data.frame(X = sum_IN_vcp1$X, var = sum_IN_vcp1$var, 
-#                         ID1 = sum_IN_vcp1$ID1, ID2 = sum_IN_vcp1$ID2,
-#                         mean = (sum_IN_vcp1$mean + sum_IN_vcp2$mean)/2,
-#                         median = (sum_IN_vcp1$median + sum_IN_vcp2)/2,
-#                         sd = (sum_IN_vcp1$sd + sum_IN_vcp2$sd)/2,
-#                         pc2.5 = (sum_IN_vcp1$pc2.5 + sum_IN_vcp2$pc2.5)/2,
-#                         pc97.5 = (sum_IN_vcp1$pc97.5 + sum_IN_vcp2$pc97.5)/2,
-#                         site = "vcp")
+sum_IN_vcp = read.csv("./output_dfs/df_sum_vcp.csv")
 sum_IN_vcm1 = read.csv("./output_dfs/df_sum_vcm1.csv")
 sum_IN_vcm2 = read.csv("./output_dfs/df_sum_vcm2.csv")
 sum_IN_vcs = read.csv("./output_dfs/df_sum_vcs.csv")
 
 sum_IN = rbind(sum_IN_seg, sum_IN_ses, sum_IN_wjs, sum_IN_mpj, 
-               sum_IN_vcp1, sum_IN_vcp2, sum_IN_vcm1, sum_IN_vcm2, sum_IN_vcs)
+               sum_IN_vcp, sum_IN_vcm1, sum_IN_vcm2, sum_IN_vcs)
 sum_IN$ID1 = as.numeric(sum_IN$ID1)
-sum_IN$site <- factor(sum_IN$site, levels = c("seg", "ses", "wjs", "mpj", "vcp1", "vcp2", "vcm1", "vcm2", "vcs"))
+sum_IN$site <- factor(sum_IN$site, levels = c("seg", "ses", "wjs", "mpj", "vcp", "vcm1", "vcm2", "vcs"))
 
 # Graph
 p <- sum_IN %>%
@@ -179,29 +170,8 @@ ggsave2("fit_high.png", plot = p2, path = path_out)
 
 ############## Net sensitivities
 
-sum_seg = sum_IN_seg %>%
-  filter(var %in% c("dYdX")) %>%
-  pivot_wider(id_cols = c(site,ID1,ID2), names_from = var, values_from = c(mean,median,sd,pc2.5,pc97.5)) %>%
-  filter(ID2 == 1)
-dataIN_T = read.csv("./clean_data/d_B_seg.csv")
-dataIN_WUE = read.csv("./clean_data/d_B_wue_seg.csv")
-dataIN <- left_join(dataIN_T, dataIN_WUE)
-sum_seg = sum_seg %>%
-  mutate(date = dataIN[184:nrow(dataIN),1])
-
-
-sum_IN_ses = read.csv("./output_dfs/df_sum_ses.csv")
-sum_IN_wjs = read.csv("./output_dfs/df_sum_wjs.csv")
-sum_IN_mpj = read.csv("./output_dfs/df_sum_mpj.csv")
-sum_IN_vcp1 = read.csv("./output_dfs/df_sum_vcp1.csv")
-sum_IN_vcp2 = read.csv("./output_dfs/df_sum_vcp2.csv")
-sum_IN_vcm1 = read.csv("./output_dfs/df_sum_vcm1.csv")
-sum_IN_vcm2 = read.csv("./output_dfs/df_sum_vcm2.csv")
-sum_IN_vcs = read.csv("./output_dfs/df_sum_vcs.csv")
-
 df_p <- sum_IN %>%
   filter(var %in% c("dYdX")) %>%
-  #filter(site %in% c("vcp1", "vcp2", "vcm1", "vcm2", "vcs")) %>%
   pivot_wider(id_cols = c(site,ID1,ID2), names_from = var, values_from = c(mean,median,sd,pc2.5,pc97.5))
 
 df_p$ID2 <-factor(df_p$ID2 , levels = c("1","2","3","4", "5"), labels = c("VPD", "T", "P", "Sshall", "Sdeep"))

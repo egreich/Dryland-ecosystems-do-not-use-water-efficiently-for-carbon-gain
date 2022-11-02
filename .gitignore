@@ -12,4 +12,5 @@ output_CWC/*
 output_coda/*
 output_dfs/*
 models/convergence/*
+models/inits/*
 plots/*

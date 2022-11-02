@@ -50,14 +50,18 @@ get_SAM_inits <- function(dataIN, key){
   # Choose the starting index. This is an index for a row in the Y data file. 
   # The value in the indexed row should be greater than 1 to accommodate 
   # calculation of antecedent values.
-  Nstart = Gstart$dayind[1] 
+  Nstart = Gstart$dayind[1]
+  Nstart2 = Gstart$dayind[3] # starting at index 3 allows us to test years into the past
   # Choose the ending index. 
   Nend   = nrow(YIN)  
   
   # Prepare data for JAGS -- covariates are scaled
-  data = list(Nstart = Nstart, 
-              Nend = Nend, 
-              Nlag = 7, 
+  data = list(Nstart = Nstart,
+              Nstart2 = Nstart2,
+              Nend = Nend,
+              Nlagday = 7, # days into the past
+              Nlagwm = 12, # weeks/months into the past (7+5 is for 4 weeks (1 month), and one more month past that = 5)
+              Nlag = 14, # weeks, months, years into the past (12+2 is for 2 years)
               NlagP = 9, 
               Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
               Yday = YIN$dayind, # Choose column in YIN that provides indices linking response variables with covariates
@@ -71,8 +75,41 @@ get_SAM_inits <- function(dataIN, key){
               PAR = as.vector(scale(dataIN$PPFD_IN,center=TRUE,scale=TRUE)),
               Sshall = as.vector(scale(dataIN$S,center=TRUE,scale=TRUE)),
               Sdeep = as.vector(scale(dataIN$Sdeep,center=TRUE,scale=TRUE)),
-              P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times
-              P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140)) #start times
+              C1 = c(6, 13, 20, 27, 55, 365+213, 365*2+213), #stop times for covariates
+              C2 = c(0, 7, 14, 21, 28, 365, 365*2), #start times for covariates, 4 weeks, 2 months, 2 years
+              P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times for precip
+              P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140)) #start times for precip
+  
+  # If running the vcp site, run the split model to account for data gaps
+  if(key == "vcp"){
+    Nsplitstart = YIN %>%
+      filter(year == 2012 & month == 10 & day == 31) %>%
+      select(dayind)
+    Nsplitend = YIN %>%
+      filter(year == 2014 & month == 4 & day == 1) %>%
+      select(dayind)
+    # Prepare data for JAGS -- covariates are scaled
+    data = list(Nstart = Nstart,
+                Nsplitstart = Nsplitstart,
+                Nsplitend = Nsplitend,
+                Nend = Nend, 
+                Nlag = 7, 
+                NlagP = 9, 
+                Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
+                Yday = YIN$dayind, # Choose column in YIN that provides indices linking response variables with covariates
+                ID1 = jIND[,2], 
+                ID2 = jIND[,3],
+                jlength = nrow(jIND),
+                Y = Y,
+                VPD = as.vector(scale(dataIN$VPD,center=TRUE,scale=TRUE)), # scale function takes vector of values, centers and scales by SD
+                Tair = as.vector(scale(dataIN$Tair,center=TRUE,scale=TRUE)),
+                P = as.vector(scale(dataIN$P,center=TRUE,scale=TRUE)),
+                PAR = as.vector(scale(dataIN$PPFD_IN,center=TRUE,scale=TRUE)),
+                Sshall = as.vector(scale(dataIN$S,center=TRUE,scale=TRUE)),
+                Sdeep = as.vector(scale(dataIN$Sdeep,center=TRUE,scale=TRUE)),
+                P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times for precip
+                P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140)) #start times for precip
+  }
   
   # Initial values are estimated using a linear model. As in the data list (above), 
   # covariates are centered and standardized. Replace name of covariate in quotes
@@ -115,9 +152,10 @@ get_SAM_inits <- function(dataIN, key){
   # Part 2: Initialize JAGS Model
   n.adapt = 500
   n.chains = 3
+  model.name <- ifelse(key != "vcp", "./models/Model_SAM_ETpart.R", "./models/Model_SAM_ETpart_split.R")
   
   start<-proc.time()
-  jm1.b=jags.model("./models/Model_SAM_ETpart.R",
+  jm1.b=jags.model(model.name,
                    data=data,
                    n.chains=n.chains,
                    n.adapt=n.adapt,
@@ -133,9 +171,7 @@ get_SAM_inits <- function(dataIN, key){
   # converge while monitoring variables included in "zc1"
   # below before monitoring dYdX (zc1dYdX), Xant (zc1X), or Y (zc1Y)
   
-  #n.iter = 40000
-  n.iter = 1000
-  #thin = 40
+  n.iter = 200 #1000
   thin = 1
   
   # parameters to track
