@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-SAM_WUE <- function(dataIN, key){
+SAM_WUE <- function(dataIN, key, chain=NULL){
   
   # Create necessary folders if they do not already exist
   if(!file.exists("output_coda")) { dir.create("output_coda")}
@@ -8,11 +8,17 @@ SAM_WUE <- function(dataIN, key){
   if(!file.exists("models/inits")) { dir.create("models/inits")}
   
   # Define filenames
+  # If not running on an HPC
+  if(is.null(chain)){
   initfilename <- paste("./models/inits/inits_", key, ".RData", sep = "")
-  zcfilename <- paste("./output_coda/zc_", key, ".RData", sep = "")
-  sumfilename <- paste("./output_coda/sum_", key, ".csv", sep = "")
-  quanfilename <- paste("./output_coda/quan_", key, ".csv", sep = "")
+  zcfilename <- paste("./output_coda/coda_all_", key, ".RData", sep = "")
   dffilename <- paste("./output_dfs/df_sum_", key, ".csv", sep = "")
+  }
+  # If running on an HPC, we will run a postscript later to combine chains
+  if(!is.null(chain)){
+    initfilename <- paste("./models/inits/inits_", chain,"_", key, ".RData", sep = "")
+    zcfilename <- paste("./output_coda/zc_", chain,"_", key, ".RData", sep = "")
+  }
   
   # Make the response variable file of interest. This file includes 
   # growing-season response (Y) variables of interest along with indices 
@@ -93,12 +99,19 @@ SAM_WUE <- function(dataIN, key){
     Nsplitend = YIN %>%
       filter(year == 2014 & month == 4 & day == 1) %>%
       select(dayind)
+    Nstart2split = YIN %>%
+      filter(year == 2016 & month == 4 & day == 1) %>% # give two years of room
+      select(dayind)
     # Prepare data for JAGS -- covariates are scaled
     data = list(Nstart = Nstart,
+                Nstart2 = Nstart2,
                 Nsplitstart = Nsplitstart,
+                Nstart2split = Nstart2split,
                 Nsplitend = Nsplitend,
-                Nend = Nend, 
-                Nlag = 7, 
+                Nend = Nend,
+                Nlagday = 7, # days into the past
+                Nlagwm = 12, # weeks/months into the past (7+5 is for 4 weeks (1 month), and one more month past that = 5)
+                Nlag = 14, # weeks, months, years into the past (12+2 is for 2 years)
                 NlagP = 9, 
                 Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
                 Yday = YIN$dayind, # Choose column in YIN that provides indices linking response variables with covariates
@@ -114,8 +127,8 @@ SAM_WUE <- function(dataIN, key){
                 Sdeep = as.vector(scale(dataIN$Sdeep,center=TRUE,scale=TRUE)),
                 # Set stop and start indices for time into the past
                 # The amount of time should accumulate into greater blocks as we move further into the past
-                S1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times for covariates (except precip)
-                S2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140), #start times for covariates (except precip)
+                C1 = c(6, 13, 20, 27, 55, 365+213, 365*2+213), #stop times for covariates
+                C2 = c(0, 7, 14, 21, 28, 365, 365*2), #start times for covariates, 4 weeks, 2 months, 2 years
                 P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times for precip
                 P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140)) #start times for precip
   }
@@ -128,6 +141,10 @@ SAM_WUE <- function(dataIN, key){
   # Part 2: Initialize JAGS Model
   n.adapt = 500 # adjust this number (and n.iter) as appropriate 
   n.chains = 3
+  # If running on an HPC, make n.chains=1
+  if(!is.null(chain)){
+    n.chains = 1
+  }
   model.name <- ifelse(key != "vcp", "./models/Model_SAM_ETpart.R", "./models/Model_SAM_ETpart_split.R")
   
   start<-proc.time() # set start time
@@ -137,7 +154,8 @@ SAM_WUE <- function(dataIN, key){
                    n.adapt=n.adapt,
                    inits = saved.state[[2]])
   end<-proc.time()
-  elapsed<- end-start
+  elapsed<- (end-start)/60
+  print("jags.model done running; minutes to completion:")
   print(elapsed[3])
   
   #####################################################################
@@ -148,24 +166,30 @@ SAM_WUE <- function(dataIN, key){
   # below before monitoring dYdX (zc1dYdX), Xant (zc1X), or Y (zc1Y)
   
   
-  n.iter = 5000 #25000 CHANGE BACK
-  thin = 40
+  n.iter = 25000
+  thin = 5
   
   # parameters to track
-  # please keep in alphabetical order
   params = c("Y", "Y.rep","beta0","beta1","beta1a",
              "beta2","deviance","dYdX","wP","wSd","wSs","wT","wV",
-             "wP.monthly","wP.weekly",#"wV.monthly","wV.weekly",
              "sig")
   
+  start<-proc.time()
   zc1 = coda.samples(jm1.b,variable.names=params,
                      n.iter=n.iter,thin = thin)
+  end<-proc.time()
+  elapsed<- (end-start)/(60*60)
+  print("coda.samples done running; hours to completion:")
+  print(elapsed[3])
   
   save(zc1, file = zcfilename)  # save the model output for graphs
   
   #####################################################################
   # Part 4: Save coda summary
   
+  # Only run this part (making a df) if not running on an HPC
+  if(is.null(chain)){
+    
   # Summarizing chains via Mike Fell's code
   df_sum <- coda.fast(chains=3, burn.in=0, thin=1, coda=zc1)
   df_sum <- rownames_to_column(df_sum, "var")
@@ -183,14 +207,14 @@ SAM_WUE <- function(dataIN, key){
     mutate(site = key)
     
   write.csv(df_sum, dffilename)
+  }
   
   # Save output
-  sumzc <- summary(zc1)
-  sumstats <- sumzc[["statistics"]] # save coda summary in table form
-  write.csv(sumstats, file = sumfilename)
-  quanstats <- sumzc[["quantiles"]] # save coda quantiles in table form
-  write.csv(quanstats, file = quanfilename)
-  
+  # sumzc <- summary(zc1)
+  # sumstats <- sumzc[["statistics"]] # save coda summary in table form
+  # write.csv(sumstats, file = sumfilename)
+  # quanstats <- sumzc[["quantiles"]] # save coda quantiles in table form
+  # write.csv(quanstats, file = quanfilename)
   
   #####################################################################
   # Part 5: Save inits for future runs

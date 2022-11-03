@@ -186,6 +186,28 @@ get_remove_index <- function(to_keep, list){
   out_list
 }
 
+# maxraft <- function(chains, burn.in=0, coda)
+# Finds the maximum number of MCMC iterations needed 
+# across all chains and monitored quantities in coda, and 
+# divides by the number of chains.
+maxraft <- function(chains, burn.in=0, skip.rows=0,coda){
+  
+  #codaraft <- window(coda,start=burn.in)
+  codaraft = coda
+  
+  raft<-raftery.diag(coda)
+  test<-c()
+  for(i in 1:chains){
+    # For each chain, grab the maximum number of iterations needed (N) a
+    # across all quantities monitored:
+    ifelse(length(skip.rows)>1,test[i]<-max(raft[[i]][[2]][-skip.rows,2], na.rm = TRUE),
+           test[i]<-max(raft[[i]][[2]][,2], na.rm = TRUE))
+  }
+  # find max number of iterations required among the chains, 
+  # then divided by (# chains) to get iterations per chain:
+  max(test)/chains
+}
+
 ###############################################################################
 # Written for work on the Multicomp project
 # Updated by Michael Fell 9/10/2018

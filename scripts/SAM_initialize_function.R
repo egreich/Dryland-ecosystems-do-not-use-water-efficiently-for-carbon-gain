@@ -1,12 +1,16 @@
 #!/usr/bin/env Rscript
 
-get_SAM_inits <- function(dataIN, key){
+get_SAM_inits <- function(dataIN, key, chain=NULL){
   
   # Create necessary folders if they do not already exist
   if(!file.exists("models/inits")) { dir.create("models/inits")}
   
   # Define filenames
   initfilename <- paste("./models/inits/inits_", key, ".RData", sep = "")
+  # If running on an HPC, save the initials by chain number
+  if(!is.null(chain)){
+    initfilename <- paste("./models/inits/inits_", chain,"_",key, ".RData", sep = "")
+  } 
   
   # Make the response variable file of interest. This file includes 
   # growing-season response (Y) variables of interest along with indices 
@@ -88,12 +92,19 @@ get_SAM_inits <- function(dataIN, key){
     Nsplitend = YIN %>%
       filter(year == 2014 & month == 4 & day == 1) %>%
       select(dayind)
+    Nstart2split = YIN %>%
+      filter(year == 2016 & month == 4 & day == 1) %>% # give two years of room
+      select(dayind)
     # Prepare data for JAGS -- covariates are scaled
     data = list(Nstart = Nstart,
+                Nstart2 = Nstart2,
                 Nsplitstart = Nsplitstart,
+                Nstart2split = Nstart2split,
                 Nsplitend = Nsplitend,
-                Nend = Nend, 
-                Nlag = 7, 
+                Nend = Nend,
+                Nlagday = 7, # days into the past
+                Nlagwm = 12, # weeks/months into the past (7+5 is for 4 weeks (1 month), and one more month past that = 5)
+                Nlag = 14, # weeks, months, years into the past (12+2 is for 2 years)
                 NlagP = 9, 
                 Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
                 Yday = YIN$dayind, # Choose column in YIN that provides indices linking response variables with covariates
@@ -107,6 +118,10 @@ get_SAM_inits <- function(dataIN, key){
                 PAR = as.vector(scale(dataIN$PPFD_IN,center=TRUE,scale=TRUE)),
                 Sshall = as.vector(scale(dataIN$S,center=TRUE,scale=TRUE)),
                 Sdeep = as.vector(scale(dataIN$Sdeep,center=TRUE,scale=TRUE)),
+                # Set stop and start indices for time into the past
+                # The amount of time should accumulate into greater blocks as we move further into the past
+                C1 = c(6, 13, 20, 27, 55, 365+213, 365*2+213), #stop times for covariates
+                C2 = c(0, 7, 14, 21, 28, 365, 365*2), #start times for covariates, 4 weeks, 2 months, 2 years
                 P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times for precip
                 P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140)) #start times for precip
   }
@@ -148,20 +163,32 @@ get_SAM_inits <- function(dataIN, key){
                list(beta0 = beta0/10, beta1 = beta1/10, beta1a = beta1a/10, beta2 = beta2/10, sig = 1/2), #green
                list(beta0 = beta0*10, beta1 = beta1*10, beta1a = beta1a*10, beta2 = beta2*10, sig = 2)) #blue
   
+  # If running on an HPC, make inits 1 chain corresponding to the chain number
+  if(!is.null(chain)){
+    inits = inits[[chain]]
+  }
+  
   #####################################################################
   # Part 2: Initialize JAGS Model
   n.adapt = 500
   n.chains = 3
+  # If running on an HPC, make n.chains=1
+  if(!is.null(chain)){
+    n.chains = 1
+  }
+  # If running the vcp site, run the split model to account for data gaps
   model.name <- ifelse(key != "vcp", "./models/Model_SAM_ETpart.R", "./models/Model_SAM_ETpart_split.R")
   
   start<-proc.time()
+  
   jm1.b=jags.model(model.name,
                    data=data,
                    n.chains=n.chains,
                    n.adapt=n.adapt,
                    inits = inits)
   end<-proc.time()
-  elapsed<- end-start
+  elapsed<- (end-start)/60
+  print("jags.model done running; minutes to completion:")
   print(elapsed[3])
   
   #####################################################################
@@ -171,25 +198,35 @@ get_SAM_inits <- function(dataIN, key){
   # converge while monitoring variables included in "zc1"
   # below before monitoring dYdX (zc1dYdX), Xant (zc1X), or Y (zc1Y)
   
-  n.iter = 200 #1000
+  n.iter = 1000
   thin = 1
   
   # parameters to track
   params = c("deviance","beta0","beta1","beta1a",
              "beta2", "sig")
 
+  start<-proc.time()
   zc1 = coda.samples(jm1.b,variable.names=params,
                      n.iter=n.iter,thin = thin)
+  end<-proc.time()
+  elapsed<- (end-start)/(60*60)
+  print("coda.samples done running; hours to completion:")
+  print(elapsed[3])
   
   #####################################################################
-  # Part 4: Check convergence
+  # Part 4: Check diagnostics
   
   #plotting to visualize chains, diagnose convergence issues, etc
   #mcmcplot(zc1)
   
-  #check convergence
-  gel<-gelman.diag(zc1, multivariate = F)
-  print(gel)
+  #check convergence via gelman diagnostics, psrf should be <1.2
+  #gel<-gelman.diag(zc1, multivariate = F)
+  #print(gel)
+  
+  #check how much to run
+  #raft<-raftery.diag(zc1)
+  #raft<-maxraft(chains=3,coda=zc1) #find the min number of iterations needed per chain
+  #print(raft)
   
   #####################################################################
   # Part 5: Save inits for future runs
@@ -210,7 +247,8 @@ get_SAM_inits <- function(dataIN, key){
   
   #check items in list
   #saved.state[[1]]
-  
+
+  # Save initials
   save(saved.state, file=initfilename) 
   
 }

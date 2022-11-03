@@ -25,8 +25,8 @@ dataIN_WUE = read.csv("./clean_data/d_B_wue_mpj.csv")
 
 dataIN <- left_join(dataIN_T, dataIN_WUE)
 
-dataIN <- dataIN %>%
-  filter(year %in% c(2016,2017,2019,2020))
+#dataIN <- dataIN %>%
+#  filter(year %in% c(2016,2017,2019,2020))
 
 ### Get initials ###
 # Run the below function to get initial estimates

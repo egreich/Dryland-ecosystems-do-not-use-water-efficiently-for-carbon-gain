@@ -16,12 +16,6 @@ if(!"mcmcplots" %in% installed.packages()) {
 if(!"tidyverse" %in% installed.packages()) {
   install.packages("tidyverse")
 }
-if(!"postjags" %in% installed.packages()) {
-  devtools::install_github("fellmk/PostJAGS/postjags")
-}
-if(!"coda4dummies" %in% installed.packages()) {
-  devtools::install_github("egreich/coda4dummies")
-}
 
 ################# Call functions
 library(tidyverse)

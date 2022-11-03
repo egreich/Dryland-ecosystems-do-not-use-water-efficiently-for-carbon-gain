@@ -15,7 +15,8 @@ path_out = "./plots/" # set save path
 
 
 ### Look at stuff  ###
-#load("./output_coda/zc_seg.RData")
+#load("./output_coda/zc_mpj.RData")
+#mcmcplot(zc1)
 
 
 sum_IN_seg = read.csv("./output_dfs/df_sum_seg.csv")
@@ -34,8 +35,7 @@ sum_IN$site <- factor(sum_IN$site, levels = c("seg", "ses", "wjs", "mpj", "vcp",
 
 # Graph
 p <- sum_IN %>%
-  filter(var %in% c("wP","wSd","wSs","wT","wV",
-                    "wP.monthly","wP.weekly")) %>%
+  filter(var %in% c("wP","wSd","wSs","wT","wV")) %>%
   ggplot(aes(x=ID1, y=mean, color=site)) + 
   geom_errorbar(aes(ymax = pc97.5, ymin = pc2.5), position = "dodge") +
   geom_point(pch=21, size = .5) +
@@ -138,7 +138,7 @@ ggsave2("fit_low.png", plot = p1, path = path_out)
 p2 <- sum_IN %>%
   filter(var %in% c("Y", "Y.rep")) %>%
   #filter(site %in% c("seg","ses", "wjs", "mpj")) %>%
-  filter(site %in% c("vcp1","vcp2", "vcm1", "vcm2", "vcs")) %>%
+  filter(site %in% c("vcp", "vcm1", "vcm2", "vcs")) %>%
   pivot_wider(id_cols = c(site,ID1), names_from = var, values_from = c(mean,median,sd,pc2.5,pc97.5)) %>%
   ggplot(aes(x = mean_Y, y= mean_Y.rep)) +
   #geom_point() +
