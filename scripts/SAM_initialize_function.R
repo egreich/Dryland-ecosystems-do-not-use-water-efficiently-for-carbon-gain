@@ -63,9 +63,7 @@ get_SAM_inits <- function(dataIN, key, chain=NULL){
   data = list(Nstart = Nstart,
               Nstart2 = Nstart2,
               Nend = Nend,
-              Nlagday = 7, # days into the past
-              Nlagwm = 12, # weeks/months into the past (7+5 is for 4 weeks (1 month), and one more month past that = 5)
-              Nlag = 14, # weeks, months, years into the past (12+2 is for 2 years)
+              Nlag = 11,
               NlagP = 9, 
               Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
               Yday = YIN$dayind, # Choose column in YIN that provides indices linking response variables with covariates
@@ -79,8 +77,8 @@ get_SAM_inits <- function(dataIN, key, chain=NULL){
               PAR = as.vector(scale(dataIN$PPFD_IN,center=TRUE,scale=TRUE)),
               Sshall = as.vector(scale(dataIN$S,center=TRUE,scale=TRUE)),
               Sdeep = as.vector(scale(dataIN$Sdeep,center=TRUE,scale=TRUE)),
-              C1 = c(6, 13, 20, 27, 55, 365+213, 365*2+213), #stop times for covariates
-              C2 = c(0, 7, 14, 21, 28, 365, 365*2), #start times for covariates, 4 weeks, 2 months, 2 years
+              C1 = c(0, 1, 2, 4, 6, 13, 20, 27, 55, 83, 111), #stop times for covariates
+              C2 = c(0, 1, 2, 3, 5, 7, 14, 21, 28, 56, 84), #start times for covariates
               P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times for precip
               P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140)) #start times for precip
   
@@ -102,9 +100,7 @@ get_SAM_inits <- function(dataIN, key, chain=NULL){
                 Nstart2split = Nstart2split,
                 Nsplitend = Nsplitend,
                 Nend = Nend,
-                Nlagday = 7, # days into the past
-                Nlagwm = 12, # weeks/months into the past (7+5 is for 4 weeks (1 month), and one more month past that = 5)
-                Nlag = 14, # weeks, months, years into the past (12+2 is for 2 years)
+                Nlag = 11,
                 NlagP = 9, 
                 Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
                 Yday = YIN$dayind, # Choose column in YIN that provides indices linking response variables with covariates
@@ -120,8 +116,8 @@ get_SAM_inits <- function(dataIN, key, chain=NULL){
                 Sdeep = as.vector(scale(dataIN$Sdeep,center=TRUE,scale=TRUE)),
                 # Set stop and start indices for time into the past
                 # The amount of time should accumulate into greater blocks as we move further into the past
-                C1 = c(6, 13, 20, 27, 55, 365+213, 365*2+213), #stop times for covariates
-                C2 = c(0, 7, 14, 21, 28, 365, 365*2), #start times for covariates, 4 weeks, 2 months, 2 years
+                C1 = c(0, 1, 2, 4, 6, 13, 20, 27, 55, 83, 111), #stop times for covariates
+                C2 = c(0, 1, 2, 3, 5, 7, 14, 21, 28, 56, 84), #start times for covariates
                 P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times for precip
                 P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140)) #start times for precip
   }

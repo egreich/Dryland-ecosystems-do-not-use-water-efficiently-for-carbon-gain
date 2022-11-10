@@ -39,7 +39,7 @@ p <- sum_IN %>%
   ggplot(aes(x=ID1, y=mean, color=site)) + 
   geom_errorbar(aes(ymax = pc97.5, ymin = pc2.5), position = "dodge") +
   geom_point(pch=21, size = .5) +
-  scale_color_manual(values=c("red", "tomato2", "sienna2", "orange","light blue","light blue","blue","blue", "dark blue")) +
+  scale_color_manual(values=c("red", "tomato2", "sienna2", "orange","light blue","blue","blue", "dark blue")) +
   facet_grid(site ~ var) +
   labs(title = NULL, y = "weight", x = NULL)+
   theme_bw() +
@@ -62,7 +62,7 @@ df_p$ID1 <-factor(df_p$ID1 , levels = c("1","2","3","4", "5", "6"), labels = c("
 p <- ggplot(data = df_p, aes(x=ID1, y=mean, color=site)) + 
   geom_errorbar(aes(ymax = pc97.5, ymin = pc2.5), position = "dodge") +
   geom_point(pch=21, size = .5) +
-  scale_color_manual(values=c("red", "tomato2", "sienna2", "orange","light blue","light blue","blue","blue", "dark blue")) +
+  scale_color_manual(values=c("red", "tomato2", "sienna2", "orange","light blue","blue","blue", "dark blue")) +
   facet_grid(var ~ site) +
   labs(title = NULL, y = "main effects", x = NULL)+
   theme_bw() +
@@ -93,7 +93,7 @@ df_p$ID1 <-factor(df_p$ID1 , levels = c("1","2","3","4", "5", "6", "7","8","9","
 p <- ggplot(data = df_p, aes(x=ID1, y=mean, color=site)) + 
   geom_errorbar(aes(ymax = pc97.5, ymin = pc2.5), position = "dodge") +
   geom_point(pch=21, size = .5) +
-  scale_color_manual(values=c("red", "tomato2", "sienna2", "orange","light blue","light blue","blue","blue", "dark blue")) +
+  scale_color_manual(values=c("red", "tomato2", "sienna2", "orange","light blue","blue","blue", "dark blue")) +
   facet_grid(var ~ site) +
   labs(title = NULL, y = "interactive effects", x = NULL)+
   theme_bw() +
@@ -179,7 +179,7 @@ df_p$ID2 <-factor(df_p$ID2 , levels = c("1","2","3","4", "5"), labels = c("VPD",
 p <- ggplot(data = df_p, aes(x=ID1, y=mean_dYdX, color=site)) + 
   geom_errorbar(aes(ymax = pc97.5_dYdX, ymin = pc2.5_dYdX), position = "dodge") +
   geom_point(pch=21, size = .5) +
-  scale_color_manual(values=c("red", "tomato2", "sienna2", "orange","light blue","light blue","blue","blue", "dark blue")) +
+  scale_color_manual(values=c("red", "tomato2", "sienna2", "orange","light blue","blue","blue", "dark blue")) +
   facet_grid(ID2 ~ site) +
   labs(title = NULL, y = "dWUE/dX", x = "Timeseries index")+
   theme_bw() +

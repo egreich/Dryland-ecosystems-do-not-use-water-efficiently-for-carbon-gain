@@ -55,24 +55,18 @@ model{
     # Intermediate weighted values of covariates with influence over 
     # flux over the past few days, months, years (or months for ppt)
     # linking two datasets together
-    for(j in 1:Nlagday){ # covariates days into the past
-      VPDtemp[i,j]    <- wV[j]*VPD[Yday[i]-j+1]
-      Tairtemp[i,j]     <- wT[j]*Tair[Yday[i]-j+1]
-      Sshalltemp[i,j] <- wSs[j]*Sshall[Yday[i]-j+1]
-      Sdeeptemp[i,j] <- wSd[j]*Sdeep[Yday[i]-j+1]
-    }
-    for(j in (Nlagday+1):Nlagwm){ # covariates weeks, months into the past
+    for(j in 1:Nlag){ # covariates weeks, months into the past
       VPDtemp[i,j] <- wV[j]*V_temp[i,j]
-      V_temp[i,j] <- mean(VPD[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])]) # mean VPD during that block period, -Nlagday is to match up with C indices
+      V_temp[i,j] <- mean(VPD[(Yday[i]-C1[j]):(Yday[i]-C2[j])]) # mean VPD during that block period
       
       Tairtemp[i,j] <- wT[j]*T_temp[i,j]
-      T_temp[i,j] <- mean(Tair[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
+      T_temp[i,j] <- mean(Tair[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
       
       Sshalltemp[i,j] <- wSs[j]*Ss_temp[i,j]
-      Ss_temp[i,j] <- mean(Sshall[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
+      Ss_temp[i,j] <- mean(Sshall[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
       
       Sdeeptemp[i,j] <- wT[j]*Sd_temp[i,j]
-      Sd_temp[i,j] <- mean(Sdeep[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
+      Sd_temp[i,j] <- mean(Sdeep[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
     }
     # For precip (ppt):
     for(j in 1:NlagP){
@@ -94,31 +88,6 @@ model{
     dYdX[i,3] <- dYdP[i]
     dYdX[i,4] <- dYdSs[i]
     dYdX[i,5] <- dYdSd[i]
-  }
-  
-  for(i in Nstart:(Nstart2-1)){ # first two years, make weights 0 for j = 13,14
-    for(j in (Nlagwm+1):Nlag){ # covariates years into the past
-      VPDtemp[i,j] <- 0
-      Tairtemp[i,j] <- 0
-      Sshalltemp[i,j] <- 0
-      Sdeeptemp[i,j] <- 0
-    }
-  }
-  
-  for(i in Nstart2:Nsplitstart){ # start two years in to be able to calculate years into the past
-    for(j in (Nlagwm+1):Nlag){ # covariates years into the past
-      VPDtemp[i,j] <- wV[j]*V_temp[i,j]
-      V_temp[i,j] <- mean(VPD[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])]) # mean VPD during that block period, -Nlagday is to match up with C indices
-      
-      Tairtemp[i,j] <- wT[j]*T_temp[i,j]
-      T_temp[i,j] <- mean(Tair[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
-      
-      Sshalltemp[i,j] <- wSs[j]*Ss_temp[i,j]
-      Ss_temp[i,j] <- mean(Sshall[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
-      
-      Sdeeptemp[i,j] <- wT[j]*Sd_temp[i,j]
-      Sd_temp[i,j] <- mean(Sdeep[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
-    }
   }
 
   ################################ split 2 ################################
@@ -176,24 +145,18 @@ model{
     # Intermediate weighted values of covariates with influence over 
     # flux over the past few days, months, years (or months for ppt)
     # linking two datasets together
-    for(j in 1:Nlagday){ # covariates days into the past
-      VPDtemp[i,j]    <- wV[j]*VPD[Yday[i]-j+1]
-      Tairtemp[i,j]     <- wT[j]*Tair[Yday[i]-j+1]
-      Sshalltemp[i,j] <- wSs[j]*Sshall[Yday[i]-j+1]
-      Sdeeptemp[i,j] <- wSd[j]*Sdeep[Yday[i]-j+1]
-    }
-    for(j in (Nlagday+1):Nlagwm){ # covariates weeks, months into the past
+    for(j in 1:Nlag){ # covariates weeks, months into the past
       VPDtemp[i,j] <- wV[j]*V_temp[i,j]
-      V_temp[i,j] <- mean(VPD[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])]) # mean VPD during that block period, -Nlagday is to match up with C indices
+      V_temp[i,j] <- mean(VPD[(Yday[i]-C1[j]):(Yday[i]-C2[j])]) # mean VPD during that block period
       
       Tairtemp[i,j] <- wT[j]*T_temp[i,j]
-      T_temp[i,j] <- mean(Tair[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
+      T_temp[i,j] <- mean(Tair[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
       
       Sshalltemp[i,j] <- wSs[j]*Ss_temp[i,j]
-      Ss_temp[i,j] <- mean(Sshall[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
+      Ss_temp[i,j] <- mean(Sshall[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
       
       Sdeeptemp[i,j] <- wT[j]*Sd_temp[i,j]
-      Sd_temp[i,j] <- mean(Sdeep[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
+      Sd_temp[i,j] <- mean(Sdeep[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
     }
     # For precip (ppt):
     for(j in 1:NlagP){
@@ -215,31 +178,6 @@ model{
     dYdX[i,3] <- dYdP[i]
     dYdX[i,4] <- dYdSs[i]
     dYdX[i,5] <- dYdSd[i]
-  }
-  
-  for(i in Nsplitend:(Nstart2split-1)){ # first two years, make weights 0 for j = 13,14
-    for(j in (Nlagwm+1):Nlag){ # covariates years into the past
-      VPDtemp[i,j] <- 0
-      Tairtemp[i,j] <- 0
-      Sshalltemp[i,j] <- 0
-      Sdeeptemp[i,j] <- 0
-    }
-  }
-  
-  for(i in Nstart2split:Nend){ # start two years in to be able to calculate years into the past
-    for(j in (Nlagwm+1):Nlag){ # covariates years into the past
-      VPDtemp[i,j] <- wV[j]*V_temp[i,j]
-      V_temp[i,j] <- mean(VPD[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])]) # mean VPD during that block period, -Nlagday is to match up with C indices
-      
-      Tairtemp[i,j] <- wT[j]*T_temp[i,j]
-      T_temp[i,j] <- mean(Tair[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
-      
-      Sshalltemp[i,j] <- wSs[j]*Ss_temp[i,j]
-      Ss_temp[i,j] <- mean(Sshall[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
-      
-      Sdeeptemp[i,j] <- wT[j]*Sd_temp[i,j]
-      Sd_temp[i,j] <- mean(Sdeep[(Yday[i]-C1[j-Nlagday]):(Yday[i]-C2[j-Nlagday])])
-    }
   }
   
   
