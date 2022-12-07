@@ -20,14 +20,20 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
     zcfilename <- paste("./output_coda/zc_", chain,"_", key, ".RData", sep = "")
   }
   
+  
+  # End for ETpart model (all days)
+  N = nrow(dataIN)
+  
   # Make the response variable file of interest. This file includes 
   # growing-season response (Y) variables of interest along with indices 
   # that link the Y variables back to covariates of interest.
   # NOTE: Kym did this to only test growing season response variables (4/1 to 10/31 for each year)
   YIN = dataIN %>%
-    select(c("date","year","month","day","B_WUE.pred")) %>% # select response variable of interest
-    #mutate(WUE_test = GPP/B_T) %>% # test WUE
-    #mutate(WUE_test =ifelse(is.na(WUE_test), 0, WUE_test)) %>%
+    mutate(Tperiod = ifelse(Season == "Spring", 1, NA)) %>%
+    mutate(Tperiod = ifelse(Season == "Summer", 2, Tperiod)) %>%
+    mutate(Tperiod = ifelse(Season == "Fall", 3, Tperiod)) %>%
+    mutate(Tperiod = ifelse(Season == "Winter", 4, Tperiod)) %>%
+    #select(c("date","year","month","day","B_WUE.pred")) %>% # select response variable of interest
     rowid_to_column("dayind") # dayind: index to link the growing season Y variables back to the appropriate 
   # row in the covariate data set
   
@@ -36,19 +42,18 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
     filter(month == 4 & day == 1) %>%
     select(dayind)
   
-  Gstop = YIN %>%
-    filter(month == 10 & day == 31) %>%
-    select(dayind)
+  # If running the burned site, start later to accommodate January data start
+  if(key == "vcm2"){
+    Gstart = YIN %>%
+      filter(month == 7 & day == 1) %>%
+      select(dayind)}
   
   # Filter YIN to just be growing season (April-Oct)
-  YIN = YIN %>%
-    filter(month %in% c(4,5,6,7,8,9,10))
-  
-  # Choose column in YIN that provides indices linking response variables with covariates
-  Yday = YIN$dayind
+  #YIN = YIN %>%
+   # filter(month %in% c(4,5,6,7,8,9,10))
   
   # Change Y to the column for the response variable of interest (T or WUE) 
-  Y  = YIN$B_WUE.pred
+  Y  = YIN$WUE
   
   # jIND file provides indices to calculate interactions between covariates
   # Basically a matrix version of X2, defined in SAM_initialize_function
@@ -62,12 +67,45 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
   # The value in the indexed row should be greater than 1 to accommodate 
   # calculation of antecedent values.
   Nstart = Gstart$dayind[1]
-  Nstart2 = Gstart$dayind[3] # starting at index 3 allows us to test years into the past
   # Choose the ending index. 
-  Nend   = nrow(YIN)  
+  Nend   = nrow(YIN)
   
   # Prepare data for JAGS -- covariates are scaled
-  data = list(Nstart = Nstart,
+  data = list(N = N, # Number of rows
+              Nperiods = 4, # Number of seasons
+              Tperiod = YIN$Tperiod,
+              Esnow = dataIN$Esnow,
+              Tsoil = dataIN$Tsoil,
+              S = dataIN$S,
+              S.min = min(dataIN$S),
+              ET = dataIN$ET,
+              GPP = dataIN$GPP,
+              ws = dataIN$ws,
+              conv.fact = 0.0864 * 0.408,
+              rho = dataIN$pair,
+              Ri = dataIN$Ri,
+              rah_unstable = dataIN$rah, # in the data, rah is just rah_unstable when appropriate. We are letting rah_stable vary (stochastic) so that's why we read this in.
+              Cp = 1000,
+              pi = 3.14159265359,
+              Rwv = 461.52, # specific gas constant for water vapor in J/(kg*K)
+              sres = 0.15*dataIN$fclay[1], # residual soil moisture
+              ssat = 0.489 - (0.126*dataIN$fsand[1]),
+              psisat = -10*exp(1.88-1.31*dataIN$fsand[1]), # parameterized air entry pressure, in mm of water
+              rssmin = 50, # minimum soil resistance in s/m
+              g  = 9.80665,     # acceleration due to gravity in m/s^2
+              gamma = dataIN$gamma,
+              #rah = dataIN$rah,
+              e.sat = dataIN$es,
+              e.a = dataIN$ea,
+              Z = dataIN$Z[1], # reference height (m)
+              #fclay = dataIN$fclay[1],
+              fc = dataIN$fc[1],
+              bch = 2.91 + 15.9*dataIN$fclay[1], # The Clapp and Hornberger parameter est. as in Cosby et al. [1984]
+              LAI = dataIN$LAI_mod,
+              P.unscaled = dataIN$P,
+    
+              # data for SAM model
+              Nstart = Nstart,
               Nend = Nend,
               Nlag = 11,
               NlagP = 9, 
@@ -76,7 +114,8 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
               ID1 = jIND[,2], 
               ID2 = jIND[,3],
               jlength = nrow(jIND),
-              Y = Y,
+              #Y = Y,
+              #Yoff = Yoff,
               VPD = as.vector(scale(dataIN$VPD,center=TRUE,scale=TRUE)), # scale function takes vector of values, centers and scales by SD
               Tair = as.vector(scale(dataIN$Tair,center=TRUE,scale=TRUE)),
               P = as.vector(scale(dataIN$P,center=TRUE,scale=TRUE)),
@@ -96,13 +135,47 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
     Nsplitend = YIN %>%
       filter(year == 2014 & month == 4 & day == 1) %>%
       select(dayind)
-    Nstart2split = YIN %>%
-      filter(year == 2016 & month == 4 & day == 1) %>% # give two years of room
-      select(dayind)
+    #Nstart2split = YIN %>%
+     # filter(year == 2016 & month == 4 & day == 1) %>% # give two years of room
+      #select(dayind)
     # Prepare data for JAGS -- covariates are scaled
-    data = list(Nstart = Nstart,
+    data = list(N = N, # Number of rows
+                Nperiods = 4, # Number of seasons
+                Tperiod = YIN$Tperiod,
+                Esnow = dataIN$Esnow,
+                Tsoil = dataIN$Tsoil,
+                S = dataIN$S,
+                S.min = min(dataIN$S),
+                ET = dataIN$ET,
+                GPP = dataIN$GPP,
+                ws = dataIN$ws,
+                conv.fact = 0.0864 * 0.408,
+                rho = dataIN$pair,
+                Ri = dataIN$Ri,
+                rah_unstable = dataIN$rah, # in the data, rah is just rah_unstable when appropriate. We are letting rah_stable vary (stochastic) so that's why we read this in.
+                Cp = 1000,
+                pi = 3.14159265359,
+                Rwv = 461.52, # specific gas constant for water vapor in J/(kg*K)
+                sres = 0.15*dataIN$fclay[1], # residual soil moisture
+                ssat = 0.489 - (0.126*dataIN$fsand[1]),
+                psisat = -10*exp(1.88-1.31*dataIN$fsand[1]), # parameterized air entry pressure, in mm of water
+                rssmin = 50, # minimum soil resistance in s/m
+                g  = 9.80665,     # acceleration due to gravity in m/s^2
+                gamma = dataIN$gamma,
+                #rah = dataIN$rah,
+                e.sat = dataIN$es,
+                e.a = dataIN$ea,
+                Z = dataIN$Z[1], # reference height (m)
+                #fclay = dataIN$fclay[1],
+                fc = dataIN$fc[1],
+                bch = 2.91 + 15.9*dataIN$fclay[1], # The Clapp and Hornberger parameter est. as in Cosby et al. [1984]
+                LAI = dataIN$LAI_mod,
+                P.unscaled = dataIN$P,
+                
+                # data for SAM model
+                Nstart = Nstart,
                 Nsplitstart = Nsplitstart,
-                Nstart2split = Nstart2split,
+                #Nstart2split = Nstart2split,
                 Nsplitend = Nsplitend,
                 Nend = Nend,
                 Nlag = 11,
@@ -133,11 +206,17 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
  
    #####################################################################
   # Part 2: Initialize JAGS Model
-  n.adapt = 500 # adjust this number (and n.iter) as appropriate 
-  n.chains = 3
+  n.adapt = 500 # adjust this number (and n.iter) as appropriate
+  inits = saved.state #[[2]]
+  # If we ran the model already, and saved the initials with their names
+  if(length(saved.state)==2){
+    inits = saved.state[[2]]
+  }
   # If running on an HPC, make n.chains=1
   if(!is.null(chain)){
     n.chains = 1
+  } else if(is.null(chain)){
+    n.chains = 3
   }
   model.name <- ifelse(key != "vcp", "./models/Model_SAM_ETpart.R", "./models/Model_SAM_ETpart_split.R")
   
@@ -146,7 +225,7 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
                    data=data,
                    n.chains=n.chains,
                    n.adapt=n.adapt,
-                   inits = saved.state[[2]])
+                   inits = inits)
   end<-proc.time()
   elapsed<- (end-start)/60
   print("jags.model done running; minutes to completion:")
@@ -160,13 +239,16 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
   # below before monitoring dYdX (zc1dYdX), Xant (zc1X), or Y (zc1Y)
   
   
-  n.iter = 25000
-  thin = 5
+  n.iter = 30000
+  thin = 6
   
   # parameters to track
-  params = c("Y", "Y.rep","beta0","beta1","beta1a",
-             "beta2","deviance","dYdX","wP","wSd","wSs","wT","wV",
-             "sig")
+  params = c("deviance",
+             "beta0","beta1","beta1a","beta2",#"dYdX",
+             "wP","wSd","wSs","wT","wV",
+             "tau.ET", "tau.log.WUE",
+             "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
+             "WUE.pred")
   
   start<-proc.time()
   zc1 = coda.samples(jm1.b,variable.names=params,
@@ -214,7 +296,7 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
   # Part 5: Save inits for future runs
   
   # inits to save
-  init_names = c("beta0","beta1","beta1a","beta2", "sig")
+  init_names = c("beta0","beta1","beta1a","beta2", "tau.ET", "tau.log.WUE")
 
   # find which variables in the coda object to remove
   remove_vars = get_remove_index(init_names, params)

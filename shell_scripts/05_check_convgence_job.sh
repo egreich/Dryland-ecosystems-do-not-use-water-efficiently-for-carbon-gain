@@ -7,5 +7,5 @@
 #SBATCH --mail-type=all
 #SBATCH --mail-user=egr65@nau.edu
 
-chmod +x ./scripts/04_check_convergence.R
-srun ./scripts/04_check_convergence.R
+chmod +x ./scripts/05_check_convergence.R
+srun ./scripts/05_check_convergence.R

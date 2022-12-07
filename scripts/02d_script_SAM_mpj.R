@@ -20,13 +20,22 @@ source("./scripts/coda_functions.R")
 # Read in the covariate file of interest. This should be a file that has all 
 # covariates for all time periods to ensure that 6-months of precipitation is 
 # supplied to the model - not just growing season precipitation
-dataIN_T = read.csv("./clean_data/d_B_mpj.csv")
-dataIN_WUE = read.csv("./clean_data/d_B_wue_mpj.csv")
+#dataIN_T = read.csv("./clean_data/d_B_mpj.csv")
+#dataIN_WUE = read.csv("./clean_data/d_B_wue_mpj.csv")
 
-dataIN <- left_join(dataIN_T, dataIN_WUE)
+#dataIN <- left_join(dataIN_T, dataIN_WUE)
 
 #dataIN <- dataIN %>%
 #  filter(year %in% c(2016,2017,2019,2020))
+
+key = "mpj"
+
+# Load data for the correct site/key
+load(paste("./clean_data/dataIN_",key,".RData",sep=""))
+
+# define df names based on key
+dataIN <- get(paste("dataIN_",key,sep="")) # daily time series
+
 
 ### Get initials ###
 # Run the below function to get initial estimates

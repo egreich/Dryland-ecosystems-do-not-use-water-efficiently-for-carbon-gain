@@ -13,12 +13,6 @@ if(!file.exists("plots")) { dir.create("plots")}
 path_out = "./plots/" # set save path
 
 
-
-### Look at stuff  ###
-#load("./output_coda/zc_mpj.RData")
-#mcmcplot(zc1)
-
-
 sum_IN_seg = read.csv("./output_dfs/df_sum_seg.csv")
 sum_IN_ses = read.csv("./output_dfs/df_sum_ses.csv")
 sum_IN_wjs = read.csv("./output_dfs/df_sum_wjs.csv")
@@ -31,7 +25,8 @@ sum_IN_vcs = read.csv("./output_dfs/df_sum_vcs.csv")
 sum_IN = rbind(sum_IN_seg, sum_IN_ses, sum_IN_wjs, sum_IN_mpj, 
                sum_IN_vcp, sum_IN_vcm1, sum_IN_vcm2, sum_IN_vcs)
 sum_IN$ID1 = as.numeric(sum_IN$ID1)
-sum_IN$site <- factor(sum_IN$site, levels = c("seg", "ses", "wjs", "mpj", "vcp", "vcm1", "vcm2", "vcs"))
+sum_IN$site <- factor(sum_IN$site, levels = c("seg", "ses", "wjs", "mpj", "vcp", "vcm1", "vcm2", "vcs"),
+                      labels = c("US-Seg", "US-Ses", "US-Wjs", "US-Mpj", "US-Vcp", "US-Vcm1", "US-Vcm2", "US-Vcs"))
 
 # Graph
 p <- sum_IN %>%
@@ -109,18 +104,18 @@ ggsave2("int_effects_grid.png", plot = p, path = path_out)
 
 
 p1 <- sum_IN %>%
-  filter(var %in% c("Y", "Y.rep")) %>%
+  filter(var %in% c("ET", "ET.pred")) %>%
   filter(site %in% c("seg","ses", "wjs", "mpj")) %>%
   #filter(site %in% c("vcp1","vcp2", "vcm1", "vcm2", "vcs")) %>%
   pivot_wider(id_cols = c(site,ID1), names_from = var, values_from = c(mean,median,sd,pc2.5,pc97.5)) %>%
-  ggplot(aes(x = mean_Y, y= mean_Y.rep)) +
+  ggplot(aes(x = mean_ET, y= mean_ET.pred)) +
   #geom_point() +
-  geom_pointrange(aes(ymin=pc2.5_Y, ymax=pc97.5_Y), alpha=0.5)+
+  geom_pointrange(aes(ymin=pc2.5_ET.pred, ymax=pc97.5_ET.pred), alpha=0.5)+
   geom_smooth(method="lm", se = F, color = "red") +
   geom_abline(slope=1, intercept=0, lty=2, col="blue", size=1.25)+
   stat_cor(aes(label = ..rr.label..), color = "red", label.x = 0.5, size = 3) +
   facet_col("site", strip.position = "right") +
-  labs(title = NULL, x="Y", y="Y.rep") +
+  labs(title = NULL, x="ET", y="ET.pred") +
   #theme_classic(base_size = 12)+
   theme(legend.position = "right",
         legend.text=element_text(size=14),
@@ -136,18 +131,18 @@ p1
 ggsave2("fit_low.png", plot = p1, path = path_out)
 
 p2 <- sum_IN %>%
-  filter(var %in% c("Y", "Y.rep")) %>%
+  filter(var %in% c("ET", "ET.pred")) %>%
   #filter(site %in% c("seg","ses", "wjs", "mpj")) %>%
   filter(site %in% c("vcp", "vcm1", "vcm2", "vcs")) %>%
   pivot_wider(id_cols = c(site,ID1), names_from = var, values_from = c(mean,median,sd,pc2.5,pc97.5)) %>%
-  ggplot(aes(x = mean_Y, y= mean_Y.rep)) +
+  ggplot(aes(x = mean_ET, y= mean_ET.pred)) +
   #geom_point() +
-  geom_pointrange(aes(ymin=pc2.5_Y, ymax=pc97.5_Y), alpha=0.5)+
+  geom_pointrange(aes(ymin=pc2.5_ET.pred, ymax=pc97.5_ET.pred), alpha=0.5)+
   geom_smooth(method="lm", se = F, color = "red") +
   geom_abline(slope=1, intercept=0, lty=2, col="blue", size=1.25)+
   stat_cor(aes(label = ..rr.label..), color = "red", label.x = 0.5, size = 3) +
   facet_col("site", strip.position = "right") +
-  labs(title = NULL, x="Y", y="Y.rep") +
+  labs(title = NULL, x="ET", y="ET.pred") +
   #theme_classic(base_size = 12)+
   theme(legend.position = "right",
         legend.text=element_text(size=14),
@@ -161,6 +156,35 @@ p2 <- sum_IN %>%
 p2
 
 ggsave2("fit_high.png", plot = p2, path = path_out)
+
+p3 <- sum_IN %>%
+  filter(var %in% c("ET", "ET.pred")) %>%
+  #filter(site %in% c("seg","ses", "wjs", "mpj")) %>%
+  #filter(site %in% c("vcp", "vcm1", "vcm2", "vcs")) %>%
+  pivot_wider(id_cols = c(site,ID1), names_from = var, values_from = c(mean,median,sd,pc2.5,pc97.5)) %>%
+  ggplot(aes(x = mean_ET, y= mean_ET.pred)) +
+  #geom_point() +
+  geom_pointrange(aes(ymin=pc2.5_ET.pred, ymax=pc97.5_ET.pred), alpha=0.5)+
+  geom_smooth(method="lm", se = F, color = "red") +
+  geom_abline(slope=1, intercept=0, lty=2, col="blue", size=1.25)+
+  stat_cor(aes(label = ..rr.label..), color = "red", geom = "label") +
+  #stat_cor(aes(label = ..rr.label..), color = "red", label.x = 0.5, size = 3) +
+  facet_col("site", strip.position = "right") +
+  labs(title = NULL, x="observed ET", y="predicted ET") +
+  #theme_classic(base_size = 12)+
+  theme(legend.position = "right",
+        legend.text=element_text(size=14),
+        text = element_text(size=14),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill="white"),
+        axis.line = element_line(color = "black"),
+        axis.text.x = element_text(colour="black"),
+        plot.title = element_text(hjust = 0.5))
+
+p3
+
+ggsave2("fit.png", plot = p3, path = path_out)
+
 
 #dYdX[i,1] <- dYdVPD[i]
 #dYdX[i,2] <- dYdT[i]
@@ -191,6 +215,91 @@ p <- ggplot(data = df_p, aes(x=ID1, y=mean_dYdX, color=site)) +
 p
 
 ggsave2("net_sens_grid.png", plot = p, path = path_out)
+
+
+
+############## WUE uncertainty
+
+p <- sum_IN %>%
+  filter(site %in% c("US-Seg", "US-Ses", "US-Wjs", "US-Mpj")) %>%
+  filter(var == "WUE.pred") %>%
+  ggplot(aes(x = ID1, y= mean)) +
+  geom_pointrange(aes(ymin=pc2.5, ymax=pc97.5), alpha=0.5)+
+  facet_col("site", strip.position = "right") +
+  labs(title = NULL, x="day", y="predicted WUE") +
+  ylim(0,30) +
+  xlim(250,350) +
+  #theme_classic(base_size = 12)+
+  theme(legend.position = "right",
+        legend.text=element_text(size=14),
+        text = element_text(size=14),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill="white"),
+        axis.line = element_line(color = "black"),
+        axis.text.x = element_text(colour="black"),
+        plot.title = element_text(hjust = 0.5))
+
+p
+
+ggsave2("WUE_uncertainty_low.png", plot = p, path = path_out)
+
+
+p <- sum_IN %>%
+  filter(site %in% c("US-Vcp", "US-Vcm1", "US-Vcm2", "US-Vcs")) %>%
+  filter(var == "WUE.pred") %>%
+  ggplot(aes(x = ID1, y= mean)) +
+  geom_pointrange(aes(ymin=pc2.5, ymax=pc97.5), alpha=0.5)+
+  facet_col("site", strip.position = "right") +
+  labs(title = NULL, x="day", y="predicted WUE") +
+  ylim(0,20) +
+  xlim(250,350) +
+  #theme_classic(base_size = 12)+
+  theme(legend.position = "right",
+        legend.text=element_text(size=14),
+        text = element_text(size=14),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill="white"),
+        axis.line = element_line(color = "black"),
+        axis.text.x = element_text(colour="black"),
+        plot.title = element_text(hjust = 0.5))
+
+p
+
+ggsave2("WUE_uncertainty_high.png", plot = p, path = path_out)
+
+
+p <- sum_IN %>%
+  filter(var == "WUE.pred") %>%
+  ggplot(aes(site, mean)) + 
+  ggdist::stat_halfeye(#aes(fill=Season),
+                         alpha = 0.45,
+                         ## custom bandwidth
+                         adjust = .5, 
+                         ## adjust height
+                         width = 1.2, 
+                         ## move geom to the right
+                         justification = -.1, 
+                         ## remove slab interval
+                         .width = 0, 
+                         point_colour = NA) +
+    geom_boxplot(
+      width = .15) +
+    scale_fill_brewer(palette = "Dark2")+
+  ylim(0,30) +
+    labs(title = NULL, y = expression(paste("WUE (g C / mm ", H[2], "O)")), x = NULL, fill = NULL) +
+    theme(legend.position = c(.17,0.8),
+          legend.text=element_text(size=16),
+          text = element_text(size=16),
+          panel.background = element_rect(fill="white"),
+          axis.line = element_line(color = "black"),
+          axis.text.x = element_text(size = 16, colour="black", angle = 12, vjust = 0.7, hjust = 0.6),
+          plot.title = element_text(hjust = 0.5))
+p
+
+ggsave2("p_WUE_raincloud.png", plot = p, path = path_out)
+
+
+
 
 
 

@@ -192,40 +192,46 @@ d_vcs_wue <- d_vcs_wue %>%
 
 
 # Load gap-filled SWC data based on linear interpolation and SOILWAT2 outputs
+# We will summarize the depths as follows:
+# Ses and Seg: shallow is 5; mid is average of 12 and 22; deep is average of 37.5 and 52.5 cm	
+# Wjs and Mpj: shallow is 5; mid is  10; deep is 30
+# Vcp: shallow is 5; mid is avg of 10,20; deep is 60 cm	
+# Vcm: shallow is 5; mid is avg of 10,20,30; deep is 50,60 cm	
+# Vcs: shallow is  5; mid is avg of 10,30; deep is 60 cm	
 dataIN_ses_soilwatGF <- read.csv("./input_data/SWC_gapfill/01_US-Ses_SWC_gapfill.csv")
 dataIN_ses_soilwatGF$Date <- as.Date(dataIN_ses_soilwatGF$Date,"%Y-%m-%d")
 dataIN_ses_soilwatGF <- dataIN_ses_soilwatGF %>%
-  dplyr::select(Date, GF8_VWC_2cm)
+  dplyr::select(Date, GF8_VWC_2cm, GF8_VWC_12cm, GF8_VWC_22cm, GF8_VWC_37cm, GF8_VWC_52cm)
 
 dataIN_seg_soilwatGF <- read.csv("./input_data/SWC_gapfill/02_US-Seg_SWC_gapfill.csv")
 dataIN_seg_soilwatGF$Date <- as.Date(dataIN_seg_soilwatGF$Date,"%Y-%m-%d")
 dataIN_seg_soilwatGF <- dataIN_seg_soilwatGF %>%
-  dplyr::select(Date, GF8_VWC_2cm)
+  dplyr::select(Date, GF8_VWC_2cm, GF8_VWC_12cm, GF8_VWC_22cm, GF8_VWC_37cm, GF8_VWC_52cm)
 
 dataIN_wjs_soilwatGF <- read.csv("./input_data/SWC_gapfill/03_US-Wjs_SWC_gapfill.csv")
 dataIN_wjs_soilwatGF$Date <- as.Date(dataIN_wjs_soilwatGF$Date,"%Y-%m-%d")
 dataIN_wjs_soilwatGF <- dataIN_wjs_soilwatGF %>%
-  dplyr::select(Date, GF8_VWC_2cm)
+  dplyr::select(Date, GF8_VWC_5cm, GF8_VWC_10cm, GF8_VWC_30cm)
 
 dataIN_mpj_soilwatGF <- read.csv("./input_data/SWC_gapfill/04_US-Mpj_SWC_gapfill.csv")
 dataIN_mpj_soilwatGF$Date <- as.Date(dataIN_mpj_soilwatGF$Date,"%Y-%m-%d")
 dataIN_mpj_soilwatGF <- dataIN_mpj_soilwatGF %>%
-  dplyr::select(Date, GF8_VWC_5cm)
+  dplyr::select(Date, GF8_VWC_5cm, GF8_VWC_10cm, GF8_VWC_30cm)
 
 dataIN_vcp_soilwatGF <- read.csv("./input_data/SWC_gapfill/05_US-Vcp_SWC_gapfill.csv")
 dataIN_vcp_soilwatGF$Date <- as.Date(dataIN_vcp_soilwatGF$Date,"%Y-%m-%d")
 dataIN_vcp_soilwatGF <- dataIN_vcp_soilwatGF %>%
-  dplyr::select(Date, GF8_VWC_5cm)
+  dplyr::select(Date, GF8_VWC_5cm, GF8_VWC_10cm, GF8_VWC_20cm, GF8_VWC_50cm, GF8_VWC_60cm)
 
 dataIN_vcm_soilwatGF <- read.csv("./input_data/SWC_gapfill/06_US-Vcm_SWC_gapfill.csv")
 dataIN_vcm_soilwatGF$Date <- as.Date(dataIN_vcm_soilwatGF$Date,"%Y-%m-%d")
 dataIN_vcm_soilwatGF <- dataIN_vcm_soilwatGF %>%
-  dplyr::select(Date, GF8_VWC_5cm)
+  dplyr::select(Date, GF8_VWC_5cm, GF8_VWC_10cm, GF8_VWC_20cm, GF8_VWC_30cm, GF8_VWC_50cm, GF8_VWC_60cm)
 
 dataIN_vcs_soilwatGF <- read.csv("./input_data/SWC_gapfill/07_US-Vcs_SWC_gapfill.csv")
 dataIN_vcs_soilwatGF$Date <- as.Date(dataIN_vcs_soilwatGF$Date,"%Y-%m-%d")
 dataIN_vcs_soilwatGF <- dataIN_vcs_soilwatGF %>%
-  dplyr::select(Date, GF8_VWC_5cm)
+  dplyr::select(Date, GF8_VWC_5cm, GF8_VWC_10cm, GF8_VWC_30cm, GF8_VWC_60cm)
 
 
 # join
@@ -325,6 +331,8 @@ d_ses <- data.frame(d1[1]) %>% # shrubland, fix what data source you are getting
          RH = dataIN_ses_com$RH_avg,
          PPFD_IN = dataIN_ses_com$PPFD_IN_sum,
          S = dataIN_ses_com$GF8_VWC_2cm,
+         Smid = (dataIN_ses_com$GF8_VWC_12cm + dataIN_ses_com$GF8_VWC_22cm)/2,
+         Sdeep = (dataIN_ses_com$GF8_VWC_37cm + dataIN_ses_com$GF8_VWC_52cm)/2,
          Tsoil = dataIN_ses_com$SOILT_2cm_gf, 
          ws = dataIN_ses_com$ws,
          LAI_mod = dataIN_ses_com$LAI,
@@ -369,6 +377,8 @@ d_seg <- data.frame(d1[2]) %>% # C4 grassland
          RH = dataIN_seg_com$RH_avg,
          PPFD_IN = dataIN_seg_com$PPFD_IN_sum,
          S = dataIN_seg_com$GF8_VWC_2cm,
+         Smid = (dataIN_seg_com$GF8_VWC_12cm + dataIN_seg_com$GF8_VWC_22cm)/2,
+         Sdeep = (dataIN_seg_com$GF8_VWC_37cm + dataIN_seg_com$GF8_VWC_52cm)/2,
          Tsoil = dataIN_seg_com$SOILT_2cm_gf, 
          ws = dataIN_seg_com$ws,
          LAI_mod = dataIN_seg_com$LAI,
@@ -407,6 +417,8 @@ d_wjs <- data.frame(d1[3]) %>% # juniper savanah
          RH = dataIN_wjs_com$RH_avg,
          PPFD_IN = dataIN_wjs_com$PPFD_IN_sum,
          S = dataIN_wjs_com$GF8_VWC_5cm,
+         Smid = dataIN_wjs_com$GF8_VWC_10cm,
+         Sdeep = dataIN_wjs_com$GF8_VWC_30cm,
          Tsoil = dataIN_wjs_com$SOILT_5cm_gf, 
          ws = dataIN_wjs_com$ws,
          LAI_mod = dataIN_wjs_com$LAI,
@@ -447,6 +459,8 @@ d_mpj <- data.frame(d1[4]) %>% # mixed pinyon-juniper
          RH = dataIN_mpj_com$RH_avg,
          PPFD_IN = dataIN_mpj_com$PPFD_IN_sum,
          S = dataIN_mpj_com$GF8_VWC_5cm,
+         Smid = dataIN_mpj_com$GF8_VWC_10cm,
+         Sdeep = dataIN_mpj_com$GF8_VWC_30cm,
          Tsoil = dataIN_mpj_com$SOILT_5cm_gf, 
          ws = dataIN_mpj_com$ws,
          LAI_mod = dataIN_mpj_com$LAI,
@@ -488,6 +502,8 @@ d_vcp <- data.frame(d1[5]) %>% # ponderosa
          RH = dataIN_vcp_com$RH_avg,
          PPFD_IN = dataIN_vcp_com$PPFD_IN_sum,
          S = dataIN_vcp_com$GF8_VWC_5cm,
+         Smid = (dataIN_vcp_com$GF8_VWC_10cm + dataIN_vcp_com$GF8_VWC_20cm)/2,
+         Sdeep = (dataIN_vcp_com$GF8_VWC_50cm + dataIN_vcp_com$GF8_VWC_60cm)/2,
          Tsoil = dataIN_vcp_com$SOILT_5cm_gf, 
          ws = dataIN_vcp_com$ws,
          LAI_mod = dataIN_vcp_com$LAI,
@@ -529,6 +545,8 @@ d_vcm <- data.frame(d1[6]) %>% # mixed conifer
          RH = dataIN_vcm_com$RH_avg,
          PPFD_IN = dataIN_vcm_com$PPFD_IN_sum,
          S = dataIN_vcm_com$GF8_VWC_5cm,
+         Smid = (dataIN_vcm_com$GF8_VWC_10cm + dataIN_vcm_com$GF8_VWC_20cm + dataIN_vcm_com$GF8_VWC_30cm)/3,
+         Sdeep = (dataIN_vcm_com$GF8_VWC_50cm + dataIN_vcm_com$GF8_VWC_60cm)/2,
          Tsoil = dataIN_vcm_com$SOILT_5cm_gf, 
          ws = dataIN_vcm_com$ws,
          LAI_mod = dataIN_vcm_com$LAI,
@@ -569,6 +587,8 @@ d_vcs <- data.frame(d1[7]) %>% # mixed conifer
          RH = dataIN_vcs_com$RH_avg,
          PPFD_IN = dataIN_vcs_com$PPFD_IN_sum,
          S = dataIN_vcs_com$GF8_VWC_5cm,
+         Smid = (dataIN_vcs_com$GF8_VWC_10cm + dataIN_vcs_com$GF8_VWC_30cm)/3,
+         Sdeep = dataIN_vcs_com$GF8_VWC_60cm,
          Tsoil = dataIN_vcs_com$SOILT_5cm_gf, 
          ws = dataIN_vcs_com$ws,
          LAI_mod = dataIN_vcs_com$LAI,
