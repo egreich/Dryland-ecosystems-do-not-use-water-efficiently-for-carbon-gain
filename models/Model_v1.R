@@ -3,7 +3,16 @@ model{
   for(i in Nstart:N){
     # Likelihood for ET data
     ET[i] ~ dnorm(ET.pred[i], tau.ET) # the 'true' ET should be somewhere around the predicted ET, with some precision
+    ET.rep[i] ~ dnorm(ET.pred[i], tau.ET)
     ET.pred[i] <- E.model[i] + T.pred[i] # for evaluating model fit, not connected to ET data
+    
+    # Compute log predictive density for WAIC
+    ldx[i] <- logdensity.norm(ET[i], ET.rep[i], tau.ET) # for WAIC
+    # Compute predictive density for WAIC:
+    dx[i] <- exp(ldx[i]) # for WAIC
+    
+    # Compute squared difference for calculating posterior predictive loss
+    sqdiff[i] <- pow(ET.rep[i]-ET[i],2)
 
     # Soil evaporation process-based model
 
@@ -77,52 +86,32 @@ model{
       sum.XX.int[j,i] <- sum(XX.int[j,i])
     }
     
-    # Creating antecedent covariates; 
     # This matrix of values will end up being used to calculate 
     # the parts involving main effects, interactions, and squared terms
     # in the regression model:
-    X[1,i] <- VPDant[i]       ## Also included as squared term
-    X[2,i] <- TAant[i]        ## Also included as squared term
-    X[3,i] <- PPTant[i]
+    X[1,i] <- VPD[Yday[i]]       ## Also included as squared term
+    X[2,i] <- Tair[Yday[i]]        ## Also included as squared term
+    X[3,i] <- PPTant[i] # P is the only antecedent term
     X[4,i] <- PAR[Yday[i]]    ## not included in interactions
-    X[5,i] <- Sshall_ant[i]
-    X[6,i] <- Sdeep_ant[i]
+    X[5,i] <- Sshall[Yday[i]]
+    X[6,i] <- Sdeep[Yday[i]]
     
     # Computed antecedent values. 
-    # PAR is assumed to instantaneously affect ecosystem fluxes, 
-    # so no antecedent term calculated
-    VPDant[i]     <- sum(VPDtemp[i,]) # summing over all lagged j's
-    TAant[i]      <- sum(Tairtemp[i,])
-    PPTant[i]     <- sum(PPTtemp[i,])
-    Sshall_ant[i] <- sum(Sshalltemp[i,])
-    Sdeep_ant[i] <- sum(Sdeeptemp[i,])
+    PPTant[i] <- sum(PPTtemp[i,])
     
-    for(j in 1:Nlag){ # covariates weeks, months into the past
-      VPDtemp[i,j] <- wV[Tperiod[i],j]*V_temp[i,j]
-      V_temp[i,j] <- mean(VPD[(Yday[i]-C1[j]):(Yday[i]-C2[j])]) # mean VPD during that block period
-      
-      Tairtemp[i,j] <- wT[Tperiod[i],j]*T_temp[i,j]
-      T_temp[i,j] <- mean(Tair[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
-      
-      Sshalltemp[i,j] <- wSs[Tperiod[i],j]*Ss_temp[i,j]
-      Ss_temp[i,j] <- mean(Sshall[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
-      
-      Sdeeptemp[i,j] <- wT[Tperiod[i],j]*Sd_temp[i,j]
-      Sd_temp[i,j] <- mean(Sdeep[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
-    }
     # For precip (ppt):
     for(j in 1:NlagP){
-      PPTtemp[i,j] <- wP[Tperiod[i],j]*P_temp[i,j] # P_temp is total precip during that block period
+      PPTtemp[i,j] <- wP[j]*P_temp[i,j] # P_temp is total precip during that block period
       P_temp[i,j] <- sum(P[(Yday[i]-P1[j]):(Yday[i]-P2[j])])
     }
     
     # Calculate net sensitivities (derivative) -- derived quantities
     
-    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPDant[i] + beta2[1,1]*TAant[i] + beta2[2,1]*PPTant[i] + beta2[3,1]*Sshall_ant[i] + beta2[4,1]*Sdeep_ant[i]
-    dYdT[i]   <- beta1[2] + 2*beta1a[2]*TAant[i] + beta2[1,1]*VPDant[i] + beta2[5,1]*PPTant[i] + beta2[6,1]*Sshall_ant[i] + beta2[7,1]*Sdeep_ant[i]
-    dYdP[i]   <- beta1[3] + beta2[2,1]*VPDant[i] + beta2[5,1]*TAant[i] + beta2[8,1]*Sshall_ant[i] + beta2[9,1]*Sdeep_ant[i]
-    dYdSs[i]  <- beta1[4] + beta2[3,1]*VPDant[i] + beta2[6,1]*TAant[i] + beta2[8,1]*PPTant[i] + beta2[10,1]*Sdeep_ant[i]
-    dYdSd[i]  <- beta1[5] + beta2[4,1]*VPDant[i] + beta2[7,1]*TAant[i] + beta2[9,1]*PPTant[i] + beta2[10,1]*Sshall_ant[i]
+    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPD[Yday[i]] + beta2[1,1]*Tair[Yday[i]] + beta2[2,1]*PPTant[i] + beta2[3,1]*Sshall[Yday[i]] + beta2[4,1]*Sdeep[Yday[i]]
+    dYdT[i]   <- beta1[2] + 2*beta1a[2]*Tair[Yday[i]] + beta2[1,1]*VPD[Yday[i]] + beta2[5,1]*PPTant[i] + beta2[6,1]*Sshall[Yday[i]] + beta2[7,1]*Sdeep[Yday[i]]
+    dYdP[i]   <- beta1[3] + beta2[2,1]*VPD[Yday[i]] + beta2[5,1]*Tair[Yday[i]] + beta2[8,1]*Sshall[Yday[i]] + beta2[9,1]*Sdeep[Yday[i]]
+    dYdSs[i]  <- beta1[4] + beta2[3,1]*VPD[Yday[i]] + beta2[6,1]*Tair[Yday[i]] + beta2[8,1]*PPTant[i] + beta2[10,1]*Sdeep[Yday[i]]
+    dYdSd[i]  <- beta1[5] + beta2[4,1]*VPD[Yday[i]] + beta2[7,1]*Tair[Yday[i]] + beta2[9,1]*PPTant[i] + beta2[10,1]*Sshall[Yday[i]]
     
     # Put all net sensitivities into one array, for easy monitoring
     dYdX[i,1] <- dYdVPD[i]
@@ -168,54 +157,35 @@ model{
     beta2[j,1] ~ dnorm(0,0.00001)
   }
   
-  # Priors for importance weights for each covariate, "delta" or gamma "trick"
-  # for imposing Dirichlet(1) priors for the weights:  
-  for(j in 1:Nlag){
-    for(t in 1:Nperiods){
-    # Priors for unnormalized weights
-    dV[t,j]    ~ dgamma(1,1)
-    dT[t,j]    ~ dgamma(1,1)
-    dSs[t,j]   ~ dgamma(1,1)
-    dSd[t,j]   ~ dgamma(1,1)
-    
-    # Compute normalized weights:
-    wV[t,j]    <- dV[t,j]/sum(dV[t,])
-    wT[t,j]    <- dT[t,j]/sum(dT[t,])
-    wSs[t,j]   <- dSs[t,j]/sum(dSs[t,])
-    wSd[t,j]   <- dSd[t,j]/sum(dSd[t,])
-    }
-  }
-  
   # Priors for importance weights for precipitation:
   for(j in 1:(NlagP-1)){
-    for(t in 1:Nperiods){
-    dP[t,j] ~ dgamma(1,1)
-    wP[t,(j+1)] <- dP[t,j]/sum(dP[t,]) 
-    }
+    dP[j] ~ dgamma(1,1)
+    wP[j+1] <- dP[j]/sum(dP[]) 
   }
   # Precipitation in first time step i assumed to have no effect - 
   # moisture effects incorporated via soil water of current week
-  wP[1,1] <- 0
-  wP[2,1] <- 0 
-  wP[3,1] <- 0 
-  wP[4,1] <- 0
+  wP[1] <- 0
   
   # Rearrange precip weights into weights at the weekly and monthly scales.
   for(j in 1:4){
-    for(t in 1:Nperiods){
-    wP.weekly[t,j] <- wP[t,j]
-    }
+    wP.weekly[j] <- wP[j]
   }
   
   for(j in 1:6){
-    for(t in 1:Nperiods){
-    wP.monthly[t,j] <- equals(j,1)*sum(wP[t,1:4]) + (1-equals(j,1))*wP[t,j+3] # a weight that sums over the first 4 weeks, then gets the monthly weights from before that
-    }
+    wP.monthly[j] <- equals(j,1)*sum(wP[1:4]) + (1-equals(j,1))*wP[j+3] # a weight that sums over the first 4 weeks, then gets the monthly weights from before that
   }
   
   #Prior for standard deviation in data likelihood 
   #tau <- pow(sig,-2)
   #sig ~ dunif(0,1000)
+  
+  # sum across days
+  Dsum <- sum(sqdiff[Nstart:N])
+  
+  # Compute quantities for calculating Bayesian R2
+  var.pred <- pow(sd(ET.pred[Nstart:N]),2)
+  var.resid <- 1/tau.ET
+  R2 <- var.pred/(var.pred + var.resid)
   
   # Priors for ET and WUE:
   tau.ET ~ dgamma(0.1,0.1) # since this is associated with the data model for ET.

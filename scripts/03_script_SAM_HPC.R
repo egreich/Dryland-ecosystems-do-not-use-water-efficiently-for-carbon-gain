@@ -12,6 +12,8 @@ print("site:")
 (site <- as.numeric(args[2]))
 print("seed:")
 (SEED <- as.numeric(args[3]))
+print("model version:")
+(modelv <- as.numeric(args[4]))
 
 # Set defined R seed
 set.seed(SEED, kind = NULL, normal.kind = NULL)
@@ -64,5 +66,5 @@ load(paste("./clean_data/dataIN_",key,".RData",sep=""))
 dataIN <- get(paste("dataIN_",key,sep="")) # daily time series
 
 ### Run the model ###
-SAM_WUE(dataIN, key, chain)
+SAM_WUE(dataIN, key, modelv, chain)
 

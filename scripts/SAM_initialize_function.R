@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-get_SAM_inits <- function(dataIN, dataIN_wue, key){
+get_SAM_inits <- function(dataIN, dataIN_wue, key, modelv){
   
   # Create necessary folders if they do not already exist
   if(!file.exists("models/inits")) { dir.create("models/inits")}

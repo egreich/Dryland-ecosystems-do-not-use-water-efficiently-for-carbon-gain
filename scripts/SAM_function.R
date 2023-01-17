@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-SAM_WUE <- function(dataIN, key, chain=NULL){
+SAM_WUE <- function(dataIN, key, modelv, chain=NULL){
   
   # Create necessary folders if they do not already exist
   if(!file.exists("output_coda")) { dir.create("output_coda")}
@@ -10,14 +10,17 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
   # Define filenames
   # If not running on an HPC
   if(is.null(chain)){
-  initfilename <- paste("./models/inits/inits_", key, ".RData", sep = "")
-  zcfilename <- paste("./output_coda/coda_all_", key, ".RData", sep = "")
-  dffilename <- paste("./output_dfs/df_sum_", key, ".csv", sep = "")
+  initfilename <- paste("./models/inits/inits_", key,"_v", modelv, ".RData", sep = "")
+  zcfilename <- paste("./output_coda/coda_all_", key,"_v", modelv, ".RData", sep = "")
+  zcxfilename <- paste("./output_coda/coda_all_x_", key,"_v", modelv, ".RData", sep = "")
+  dffilename <- paste("./output_dfs/df_sum_", key,"_v", modelv, ".csv", sep = "")
   }
   # If running on an HPC, we will run a postscript later to combine chains
   if(!is.null(chain)){
-    initfilename <- paste("./models/inits/inits_", chain,"_", key, ".RData", sep = "")
-    zcfilename <- paste("./output_coda/zc_", chain,"_", key, ".RData", sep = "")
+    initfilename <- paste("./models/inits/inits_", chain,"_", key,"_v", modelv, ".RData", sep = "")
+    zcfilename <- paste("./output_coda/zc_", chain,"_", key,"_v", modelv, ".RData", sep = "")
+    zcxfilename <- paste("./output_coda/zc_x_", chain,"_", key,"_v", modelv, ".RData", sep = "")
+    jagsfilename <- paste("./output_coda/jagsmodel_", chain,"_", key,"_v", modelv, ".csv", sep = "")
   }
   
   
@@ -69,6 +72,7 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
   Nstart = Gstart$dayind[1]
   # Choose the ending index. 
   Nend   = nrow(YIN)
+  
   
   # Prepare data for JAGS -- covariates are scaled
   data = list(N = N, # Number of rows
@@ -202,15 +206,40 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
   
 
   # Load initial values from previous run
-  load(initfilename)
+  initfilenametemp <- paste("./models/inits/inits_", chain,"_", key, ".RData", sep = "") # temp, only for first run
+  load(initfilenametemp) # temp, change to initfilename after first run
+  if(file.exists(initfilename)){
+    load(initfilename)
+  }
  
    #####################################################################
   # Part 2: Initialize JAGS Model
   n.adapt = 500 # adjust this number (and n.iter) as appropriate
+  
+  # Define the correct dimension of the saved state
+  if(length(saved.state)==2){
   inits = saved.state #[[2]]
+  if(modelv==6){
+    saved.state[["sig.WUE"]] <- runif(1, 5, 15) # temp for model 6
+    inits = saved.state
+  }
+  }
   # If we ran the model already, and saved the initials with their names
   if(length(saved.state)==2){
     inits = saved.state[[2]]
+    if(modelv==6){
+      saved.state[["initials"]][[1]][["sig.WUE"]] <- runif(1, 5, 15) # temp for model 6
+      inits = saved.state[[2]]
+    }
+    # if(modelv %in% c(2,5)){ # temp for model 2,5 - to have main effects vary by season
+    #   beta1inits <- saved.state[["initials"]][[1]][["beta1"]]
+    #   saved.state[["initials"]][[1]][["beta1"]] <- matrix(data = 0, nrow = 6, ncol = 4)
+    #   saved.state[["initials"]][[1]][["beta1"]][,1] <- beta1inits
+    #   saved.state[["initials"]][[1]][["beta1"]][,2] <- beta1inits
+    #   saved.state[["initials"]][[1]][["beta1"]][,3] <- beta1inits
+    #   saved.state[["initials"]][[1]][["beta1"]][,4] <- beta1inits
+    #   inits = saved.state[[2]]
+    # }
   }
   # If running on an HPC, make n.chains=1
   if(!is.null(chain)){
@@ -218,7 +247,7 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
   } else if(is.null(chain)){
     n.chains = 3
   }
-  model.name <- ifelse(key != "vcp", "./models/Model_SAM_ETpart.R", "./models/Model_SAM_ETpart_split.R")
+  model.name <- ifelse(key != "vcp", paste("./models/Model_v", modelv, ".R", sep=""), paste("./models/Model_split_v", modelv, ".R", sep=""))
   
   start<-proc.time() # set start time
   jm1.b=jags.model(model.name,
@@ -230,6 +259,9 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
   elapsed<- (end-start)/60
   print("jags.model done running; minutes to completion:")
   print(elapsed[3])
+  
+  # Save jags.model object to calculate DIC and pD later
+  save(jm1.b, file=jagsfilename)
   
   #####################################################################
   # Part 3: Run coda.samples with JAGS model
@@ -250,6 +282,23 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
              "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
              "WUE.pred")
   
+  if(modelv %in% c(1,2)){
+    params = c("deviance",
+               "beta0","beta1","beta1a","beta2",#"dYdX",
+               "wP",
+               "tau.ET", "tau.log.WUE",
+               "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
+               "WUE.pred")
+  }
+  
+  if(modelv==6){
+    params = c("deviance",
+               "beta0","beta1","beta1a","beta2",
+               "tau.ET", "sig.WUE",
+               "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
+               "WUE.pred")
+  }
+  
   start<-proc.time()
   zc1 = coda.samples(jm1.b,variable.names=params,
                      n.iter=n.iter,thin = thin)
@@ -258,7 +307,11 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
   print("coda.samples done running; hours to completion:")
   print(elapsed[3])
   
+  # New code object to monitor quantities for Dinf, WAIC, and R2
+  zc1x = coda.samples(jm1.b, variable.names = c("Dsum","ldx","dx","R2","ET.rep"), n.iter = 3000)
+  
   save(zc1, file = zcfilename)  # save the model output for graphs
+  save(zc1x, file = zcxfilename)  # save the model output for graphs
   
   #####################################################################
   # Part 4: Save coda summary
@@ -297,6 +350,9 @@ SAM_WUE <- function(dataIN, key, chain=NULL){
   
   # inits to save
   init_names = c("beta0","beta1","beta1a","beta2", "tau.ET", "tau.log.WUE")
+  if(modelv==6){
+    init_names = c("beta0","beta1","beta1a","beta2", "tau.ET", "sig.WUE")
+  }
 
   # find which variables in the coda object to remove
   remove_vars = get_remove_index(init_names, params)

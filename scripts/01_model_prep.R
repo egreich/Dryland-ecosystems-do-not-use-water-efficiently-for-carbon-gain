@@ -9,7 +9,7 @@ library(tidyverse)
 source("./scripts/functions.R") # for assign_block function
 
 ################# Set universal variables
-n = 7 # change this to change block length
+n = 1 # change this to change block length
 
 ### US-Seg
 
