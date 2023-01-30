@@ -186,6 +186,67 @@ get_remove_index <- function(to_keep, list){
   out_list
 }
 
+###############################################################################
+#
+# A function that does pairwise comparisons among defined outputs from JAGS
+#
+###############################################################################
+
+# A function that does pairwise comparisons among defined outputs from JAGS
+# requires multcompView, pacman
+library(multcompView)
+library(pacman)
+bd.check_similarity <- function(data, params, which.params, m, l, u, anchor=NULL, ids) {
+  pacman::p_load(tidyverse)
+  foo <- data;
+  if(!is.null(anchor)) {
+    all.letters <- list()
+    for(i in 1:length(which.params)) {
+      bar1 <-
+        foo %>% 
+        select({{params}},{{m}},{{l}},{{u}},{{anchor}},{{ids}})
+      bar1 <- bar1[which(bar1[1]==which.params[i]),]
+      colnames(bar1) <- c("p","m","l","u","anchor","id")
+      bar2 <-
+        bar1 %>% 
+        inner_join(bar1, by=c("anchor")) %>% 
+        mutate(c = ifelse(m.x==m.y, "ns",
+                          ifelse(m.y>=l.x & m.y<=u.x | m.x>=l.y & m.x<=u.y, 
+                                 "ns","sig"))) %>% 
+        group_by(anchor, id.x, id.y) %>% 
+        mutate(ids = paste(sort(c(id.x,id.y)),collapse = "-")) %>% 
+        ungroup() %>% 
+        select(anchor, ids , c) %>% 
+        distinct() %>% 
+        mutate(id2=ids) %>% 
+        separate(id2, c("id1","id2"), "-")
+      
+      which.anchor <- unique(bar1$anchor)
+      which.ids <- unique(bar1$id)
+      l.letters <- list()
+      for (j in 1:length(which.anchor)) {
+        dif3 <- bar2 %>% filter(anchor==which.anchor[j]) %>% mutate(c=ifelse(c=="ns",F,T)) %>% pull(c)
+        names(dif3) <- bar2 %>% filter(anchor==which.anchor[j]) %>% pull(ids)
+        dif3L <- multcompView::multcompLetters(dif3)
+        l.letters[[j]] <-
+          data.frame(id = which.ids,
+                     anchor = which.anchor[j],
+                     params=which.params[i],
+                     letters = dif3L$Letters)
+        colnames(l.letters[[j]]) <- c(ids, anchor, params, "letters")
+      }
+      all.letters[[i]] <- do.call(rbind,l.letters)
+    }
+    return(do.call(rbind,all.letters))
+    
+  } else {
+    writeLines("Please specify an anchor column.")
+  }  
+}
+
+
+
+
 # maxraft <- function(chains, burn.in=0, coda)
 # Finds the maximum number of MCMC iterations needed 
 # across all chains and monitored quantities in coda, and 

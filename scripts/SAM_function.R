@@ -74,6 +74,15 @@ SAM_WUE <- function(dataIN, key, modelv, chain=NULL){
   Nend   = nrow(YIN)
   
   
+  C1 = c(0, 1, 2, 4, 6, 13, 20) #stop times for covariates
+  C2 = c(0, 1, 2, 3, 5, 7, 14) #start times for covariates
+  P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167) #stop times for precip
+  P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140) #start times for precip
+
+  Nlag = length(C1)
+  NlagP = length(P1)
+  
+  
   # Prepare data for JAGS -- covariates are scaled
   data = list(N = N, # Number of rows
               Nperiods = 4, # Number of seasons
@@ -111,8 +120,8 @@ SAM_WUE <- function(dataIN, key, modelv, chain=NULL){
               # data for SAM model
               Nstart = Nstart,
               Nend = Nend,
-              Nlag = 11,
-              NlagP = 9, 
+              Nlag = Nlag,
+              NlagP = NlagP, 
               Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
               Yday = YIN$dayind, # Choose column in YIN that provides indices linking response variables with covariates
               ID1 = jIND[,2], 
@@ -126,10 +135,10 @@ SAM_WUE <- function(dataIN, key, modelv, chain=NULL){
               PAR = as.vector(scale(dataIN$PPFD_IN,center=TRUE,scale=TRUE)),
               Sshall = as.vector(scale(dataIN$S,center=TRUE,scale=TRUE)),
               Sdeep = as.vector(scale(dataIN$Sdeep,center=TRUE,scale=TRUE)),
-              C1 = c(0, 1, 2, 4, 6, 13, 20, 27, 55, 83, 111), #stop times for covariates
-              C2 = c(0, 1, 2, 3, 5, 7, 14, 21, 28, 56, 84), #start times for covariates
-              P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times for precip
-              P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140)) #start times for precip
+              C1 = C1,
+              C2 = C2,
+              P1 = P1,
+              P2 = P2)
   
   # If running the vcp site, run the split model to account for data gaps
   if(key == "vcp"){
@@ -182,8 +191,8 @@ SAM_WUE <- function(dataIN, key, modelv, chain=NULL){
                 #Nstart2split = Nstart2split,
                 Nsplitend = Nsplitend,
                 Nend = Nend,
-                Nlag = 11,
-                NlagP = 9, 
+                Nlag = Nlag,
+                NlagP = NlagP,
                 Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
                 Yday = YIN$dayind, # Choose column in YIN that provides indices linking response variables with covariates
                 ID1 = jIND[,2], 
@@ -198,10 +207,10 @@ SAM_WUE <- function(dataIN, key, modelv, chain=NULL){
                 Sdeep = as.vector(scale(dataIN$Sdeep,center=TRUE,scale=TRUE)),
                 # Set stop and start indices for time into the past
                 # The amount of time should accumulate into greater blocks as we move further into the past
-                C1 = c(0, 1, 2, 4, 6, 13, 20, 27, 55, 83, 111), #stop times for covariates
-                C2 = c(0, 1, 2, 3, 5, 7, 14, 21, 28, 56, 84), #start times for covariates
-                P1 = c(6, 13, 20, 27, 55, 83, 111, 139, 167), #stop times for precip
-                P2 = c(0, 7, 14, 21, 28, 56, 84, 112, 140)) #start times for precip
+                C1 = C1,
+                C2 = C2,
+                P1 = P1,
+                P2 = P2)
   }
   
 
@@ -217,20 +226,20 @@ SAM_WUE <- function(dataIN, key, modelv, chain=NULL){
   n.adapt = 500 # adjust this number (and n.iter) as appropriate
   
   # Define the correct dimension of the saved state
-  if(length(saved.state)==2){
+  if(length(saved.state)!=2){
   inits = saved.state #[[2]]
-  if(modelv==6){
-    saved.state[["sig.WUE"]] <- runif(1, 5, 15) # temp for model 6
-    inits = saved.state
-  }
+  # if(modelv==7){
+  #   saved.state[["sig.WUE"]] <- runif(1, 5, 15) # temp for model 6
+  #   inits = saved.state
+  #}
   }
   # If we ran the model already, and saved the initials with their names
   if(length(saved.state)==2){
     inits = saved.state[[2]]
-    if(modelv==6){
-      saved.state[["initials"]][[1]][["sig.WUE"]] <- runif(1, 5, 15) # temp for model 6
-      inits = saved.state[[2]]
-    }
+    # if(modelv==7){
+    #   saved.state[["initials"]][[1]][["sig.WUE"]] <- runif(1, 5, 15) # temp for model 6
+    #   inits = saved.state[[2]]
+    # }
     # if(modelv %in% c(2,5)){ # temp for model 2,5 - to have main effects vary by season
     #   beta1inits <- saved.state[["initials"]][[1]][["beta1"]]
     #   saved.state[["initials"]][[1]][["beta1"]] <- matrix(data = 0, nrow = 6, ncol = 4)
@@ -291,7 +300,7 @@ SAM_WUE <- function(dataIN, key, modelv, chain=NULL){
                "WUE.pred")
   }
   
-  if(modelv==6){
+  if(modelv==7){
     params = c("deviance",
                "beta0","beta1","beta1a","beta2",
                "tau.ET", "sig.WUE",
@@ -350,7 +359,7 @@ SAM_WUE <- function(dataIN, key, modelv, chain=NULL){
   
   # inits to save
   init_names = c("beta0","beta1","beta1a","beta2", "tau.ET", "tau.log.WUE")
-  if(modelv==6){
+  if(modelv==7){
     init_names = c("beta0","beta1","beta1a","beta2", "tau.ET", "sig.WUE")
   }
 

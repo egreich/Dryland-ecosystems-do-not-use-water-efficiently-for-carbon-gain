@@ -14,3 +14,7 @@ output_dfs/*
 models/convergence/*
 models/inits/*
 plots/*
+
+output_dfs_old/*
+models/convergence_old/*
+plots_old/*

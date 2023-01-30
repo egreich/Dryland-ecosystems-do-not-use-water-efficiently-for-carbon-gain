@@ -65,7 +65,7 @@ dffilename <- paste("./output_dfs/df_sum_", key, "_v", modelv, ".csv", sep = "")
 print("filenames defined")
 # Combine chains into one mcmc list (coda object) for each site:
 
-if(!file.exists(dffilename)){
+
 # make an empty mcmc list
 coda_all <- mcmc.list()
 coda_all_x <- mcmc.list()
@@ -109,7 +109,7 @@ df_sum <- df_sum %>%
   mutate(site = key)
 
 write.csv(df_sum, dffilename)
-}
+print("df_sum saved")
 
 ### DIC
 

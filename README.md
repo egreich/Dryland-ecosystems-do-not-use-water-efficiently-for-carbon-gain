@@ -10,4 +10,5 @@ This repository contains models and code to run the DEPART-SAM model. An explana
   - v3 yes antecedent conditions, no season main effects, no season weights
   - v4 yes antecedent conditions, no season main effects, yes season weights
   - v5 yes antecedent conditions, yes season main effects, yes season weights
-  - v6 DEPART model without environmental parameters
+  - v6 yes antecedent conditions, yes season main effects, yes season weights, modeled hierarchically
+  - v7 DEPART model without environmental parameters
