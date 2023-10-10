@@ -29,22 +29,14 @@ check_convergence<- function(s,modelv){
   if(!file.exists("models/convergence")) { dir.create("models/convergence")}
   if(!file.exists(foldername)) { dir.create(foldername)}
 
-  load(zcfilename)
+  load(zcfilename) # called jagsui
   
-  mcmcplot(coda_all,
+  jm_coda <- jagsui$samples 
+  
+  mcmcplot(jm_coda,
            random = 15,
            dir = dirname,
            filename = filename)
-  
-  # Raftery diagnostic to determine number of samples needed:
-  source("./scripts/coda_functions.R")
-  
-  maxraft <- maxraft(chains=3,coda=coda_all)
-  
-  raft.out <- data.frame(site = key, modelv = modelv, Total_its = maxraft)
-  
-  write.csv(raft.out, file=paste("models/convergence/raft_outstats_",key, "_v", modelv,".csv", sep=""))
-  
   
 
 }

@@ -1,24 +1,28 @@
 #!/usr/bin/env Rscript
 
 ### This script file will allow the user to run the SAM model to 
-### evaluate controls on T (or WUE?) for sites in the NMEG. 
+### evaluate controls on WUE for sites in the NMEG. 
 
 # Set run params
 args<-commandArgs(TRUE)
 print(args)
-print("chain:")
-(chain <- as.numeric(args[1]))
 print("site:")
-(site <- as.numeric(args[2]))
+(site <- as.numeric(args[1]))
 print("seed:")
-(SEED <- as.numeric(args[3]))
+(SEED <- as.numeric(args[2]))
 print("model version:")
-(modelv <- as.numeric(args[4]))
+(modelv <- as.numeric(args[3]))
 
 # Set defined R seed
 set.seed(SEED, kind = NULL, normal.kind = NULL)
 # Generate "random" seed for jags
 JAGS.seed<-ceiling(runif(1,1,10000000))
+
+test = F
+if(test==T){
+  site=6
+  modelv=3
+}
 
 # key for which site corresponds to which index
 if(site == 1){
@@ -40,16 +44,17 @@ if(site == 1){
 }
 
 # Load packages
-library(rjags)
-load.module('dic')
+library(jagsUI)
 library(mcmcplots)
 library(tidyverse)
+library(tibble) # rowid_to_column
+library(gsubfn) # for gsub for table org
 
 
 # Load self-made functions
-source("./scripts/SAM_initialize_function.R")
 source("./scripts/SAM_function.R")
 source("./scripts/coda_functions.R")
+source("./scripts/check_convergence_function.R")
 
 ### Read in data ###
 # Read in the covariate file of interest. This should be a file that has all 
@@ -66,5 +71,8 @@ load(paste("./clean_data/dataIN_",key,".RData",sep=""))
 dataIN <- get(paste("dataIN_",key,sep="")) # daily time series
 
 ### Run the model ###
-SAM_WUE(dataIN, key, modelv, chain)
+SAM_WUE(dataIN, key, modelv, newinits=F, post_only=T)
+
+### create mcmc plots ###
+check_convergence(site,modelv)
 

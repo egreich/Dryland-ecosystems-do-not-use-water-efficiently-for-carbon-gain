@@ -38,10 +38,10 @@ model{
     
     # Soil evaporation from E1 (CLM 4.5)
     LE4.5[i] <- ifelse(Tsoil[i] >= 0, bowen[i]*((rho[i]*Cp)/gamma[i])*((alpha[i]*(e.sat[i] - e.a[i]))/rah[i]), 0)
-    Esoil4.5[i] <- conv.fact*LE4.5[i]
+    Esoil4.5[i] <- conv.fact[i]*LE4.5[i]
     # Soil evaporation from E2 (CLM 3.5)
     LE3.5[i] <- ifelse(Tsoil[i] >= 0, ((rho[i]*Cp)/gamma[i])*((alpha[i]*(e.sat[i] - e.a[i]))/(rah[i] + rss[i])), 0)
-    Esoil3.5[i] <- conv.fact*LE3.5[i]
+    Esoil3.5[i] <- conv.fact[i]*LE3.5[i]
     
     # e.scalar ~ dunif(0,1) - maybe try this if the fit still isn't that great
     E.model[i] <- p*Esoil4.5[i] + (1-p)*Esoil3.5[i] + Eint[i] + Esnow[i]
@@ -75,7 +75,7 @@ model{
     }
     
     # Squared terms:
-    for(j in 1:2){
+    for(j in 1:Nparms){
       X2.effect[j,i] <- beta1a[j]*pow(X[j,i],2)
     }
     
@@ -92,16 +92,15 @@ model{
     X[1,i] <- VPDant[i]       ## Also included as squared term
     X[2,i] <- TAant[i]        ## Also included as squared term
     X[3,i] <- PPTant[i]
-    X[4,i] <- PAR[Yday[i]]    ## not included in interactions
+    X[4,i] <- PAR_ant[i]
     X[5,i] <- Sshall_ant[i]
     X[6,i] <- Sdeep_ant[i]
     
     # Computed antecedent values. 
-    # PAR is assumed to instantaneously affect ecosystem fluxes, 
-    # so no antecedent term calculated
     VPDant[i]     <- sum(VPDtemp[i,]) # summing over all lagged j's
     TAant[i]      <- sum(Tairtemp[i,])
     PPTant[i]     <- sum(PPTtemp[i,])
+    PAR_ant[i]     <- sum(PARtemp[i,])
     Sshall_ant[i] <- sum(Sshalltemp[i,])
     Sdeep_ant[i] <- sum(Sdeeptemp[i,])
     
@@ -114,6 +113,9 @@ model{
       
       Tairtemp[i,j] <- wT[j]*T_temp[i,j]
       T_temp[i,j] <- mean(Tair[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
+      
+      PARtemp[i,j] <- wPAR[j]*PAR_temp[i,j]
+      PAR_temp[i,j] <- mean(PAR[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
       
       Sshalltemp[i,j] <- wSs[j]*Ss_temp[i,j]
       Ss_temp[i,j] <- mean(Sshall[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
@@ -129,18 +131,20 @@ model{
     
     # Calculate net sensitivities (derivative) -- derived quantities
     
-    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPDant[i] + beta2[1,1]*TAant[i] + beta2[2,1]*PPTant[i] + beta2[3,1]*Sshall_ant[i] + beta2[4,1]*Sdeep_ant[i]
-    dYdT[i]   <- beta1[2] + 2*beta1a[2]*TAant[i] + beta2[1,1]*VPDant[i] + beta2[5,1]*PPTant[i] + beta2[6,1]*Sshall_ant[i] + beta2[7,1]*Sdeep_ant[i]
-    dYdP[i]   <- beta1[3] + beta2[2,1]*VPDant[i] + beta2[5,1]*TAant[i] + beta2[8,1]*Sshall_ant[i] + beta2[9,1]*Sdeep_ant[i]
-    dYdSs[i]  <- beta1[4] + beta2[3,1]*VPDant[i] + beta2[6,1]*TAant[i] + beta2[8,1]*PPTant[i] + beta2[10,1]*Sdeep_ant[i]
-    dYdSd[i]  <- beta1[5] + beta2[4,1]*VPDant[i] + beta2[7,1]*TAant[i] + beta2[9,1]*PPTant[i] + beta2[10,1]*Sshall_ant[i]
+    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPDant[i] + beta2[1,1]*TAant[i] + beta2[2,1]*PPTant[i] + beta2[3,1]*Sshall_ant[i] + beta2[4,1]*Sdeep_ant[i] + beta2[11,1]*PAR_ant[i]
+    dYdT[i]   <- beta1[2] + 2*beta1a[2]*TAant[i] + beta2[1,1]*VPDant[i] + beta2[5,1]*PPTant[i] + beta2[6,1]*Sshall_ant[i] + beta2[7,1]*Sdeep_ant[i] + beta2[12,1]*PAR_ant[i]
+    dYdP[i]   <- beta1[3] + 2*beta1a[3]*PPTant[i] + beta2[2,1]*VPDant[i] + beta2[5,1]*TAant[i] + beta2[8,1]*Sshall_ant[i] + beta2[9,1]*Sdeep_ant[i] + beta2[13,1]*PAR_ant[i]
+    dYdPAR[i]   <- beta1[4] + 2*beta1a[4]*PAR_ant[i] + beta2[11,1]*VPDant[i] + beta2[12,1]*TAant[i] + beta2[13,1]*PPTant[i] + beta2[14,1]*Sshall_ant[i] + beta2[15,1]*Sdeep_ant[i]
+    dYdSs[i]  <- beta1[5] + 2*beta1a[5]*Sshall_ant[i] + beta2[3,1]*VPDant[i] + beta2[6,1]*TAant[i] + beta2[8,1]*PPTant[i] + beta2[10,1]*Sdeep_ant[i] + beta2[14,1]*PAR_ant[i]
+    dYdSd[i]  <- beta1[6] + 2*beta1a[6]*Sdeep_ant[i] + beta2[4,1]*VPDant[i] + beta2[7,1]*TAant[i] + beta2[9,1]*PPTant[i] + beta2[10,1]*Sshall_ant[i] + beta2[15,1]*PAR_ant[i]
     
     # Put all net sensitivities into one array, for easy monitoring
     dYdX[i,1] <- dYdVPD[i]
     dYdX[i,2] <- dYdT[i]
     dYdX[i,3] <- dYdP[i]
-    dYdX[i,4] <- dYdSs[i]
-    dYdX[i,5] <- dYdSd[i]
+    dYdX[i,4] <- dYdPAR[i]
+    dYdX[i,5] <- dYdSs[i]
+    dYdX[i,6] <- dYdSd[i]
   }
   ################################ split 2 ################################
   for(i in Nsplitend:N){
@@ -181,10 +185,10 @@ model{
     
     # Soil evaporation from E1 (CLM 4.5)
     LE4.5[i] <- ifelse(Tsoil[i] >= 0, bowen[i]*((rho[i]*Cp)/gamma[i])*((alpha[i]*(e.sat[i] - e.a[i]))/rah[i]), 0)
-    Esoil4.5[i] <- conv.fact*LE4.5[i]
+    Esoil4.5[i] <- conv.fact[i]*LE4.5[i]
     # Soil evaporation from E2 (CLM 3.5)
     LE3.5[i] <- ifelse(Tsoil[i] >= 0, ((rho[i]*Cp)/gamma[i])*((alpha[i]*(e.sat[i] - e.a[i]))/(rah[i] + rss[i])), 0)
-    Esoil3.5[i] <- conv.fact*LE3.5[i]
+    Esoil3.5[i] <- conv.fact[i]*LE3.5[i]
     
     # e.scalar ~ dunif(0,1) - maybe try this if the fit still isn't that great
     E.model[i] <- p*Esoil4.5[i] + (1-p)*Esoil3.5[i] + Eint[i] + Esnow[i]
@@ -216,7 +220,7 @@ model{
     }
     
     # Squared terms:
-    for(j in 1:2){
+    for(j in 1:Nparms){
       X2.effect[j,i] <- beta1a[j]*pow(X[j,i],2)
     }
     
@@ -233,16 +237,15 @@ model{
     X[1,i] <- VPDant[i]       ## Also included as squared term
     X[2,i] <- TAant[i]        ## Also included as squared term
     X[3,i] <- PPTant[i]
-    X[4,i] <- PAR[Yday[i]]    ## not included in interactions
+    X[4,i] <- PAR_ant[i]
     X[5,i] <- Sshall_ant[i]
     X[6,i] <- Sdeep_ant[i]
     
     # Computed antecedent values. 
-    # PAR is assumed to instantaneously affect ecosystem fluxes, 
-    # so no antecedent term calculated
     VPDant[i]     <- sum(VPDtemp[i,]) # summing over all lagged j's
     TAant[i]      <- sum(Tairtemp[i,])
     PPTant[i]     <- sum(PPTtemp[i,])
+    PAR_ant[i]     <- sum(PARtemp[i,])
     Sshall_ant[i] <- sum(Sshalltemp[i,])
     Sdeep_ant[i] <- sum(Sdeeptemp[i,])
     
@@ -255,6 +258,9 @@ model{
       
       Tairtemp[i,j] <- wT[j]*T_temp[i,j]
       T_temp[i,j] <- mean(Tair[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
+      
+      PARtemp[i,j] <- wPAR[j]*PAR_temp[i,j]
+      PAR_temp[i,j] <- mean(PAR[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
       
       Sshalltemp[i,j] <- wSs[j]*Ss_temp[i,j]
       Ss_temp[i,j] <- mean(Sshall[(Yday[i]-C1[j]):(Yday[i]-C2[j])])
@@ -270,18 +276,20 @@ model{
     
     # Calculate net sensitivities (derivative) -- derived quantities
     
-    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPDant[i] + beta2[1,1]*TAant[i] + beta2[2,1]*PPTant[i] + beta2[3,1]*Sshall_ant[i] + beta2[4,1]*Sdeep_ant[i]
-    dYdT[i]   <- beta1[2] + 2*beta1a[2]*TAant[i] + beta2[1,1]*VPDant[i] + beta2[5,1]*PPTant[i] + beta2[6,1]*Sshall_ant[i] + beta2[7,1]*Sdeep_ant[i]
-    dYdP[i]   <- beta1[3] + beta2[2,1]*VPDant[i] + beta2[5,1]*TAant[i] + beta2[8,1]*Sshall_ant[i] + beta2[9,1]*Sdeep_ant[i]
-    dYdSs[i]  <- beta1[4] + beta2[3,1]*VPDant[i] + beta2[6,1]*TAant[i] + beta2[8,1]*PPTant[i] + beta2[10,1]*Sdeep_ant[i]
-    dYdSd[i]  <- beta1[5] + beta2[4,1]*VPDant[i] + beta2[7,1]*TAant[i] + beta2[9,1]*PPTant[i] + beta2[10,1]*Sshall_ant[i]
+    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPDant[i] + beta2[1,1]*TAant[i] + beta2[2,1]*PPTant[i] + beta2[3,1]*Sshall_ant[i] + beta2[4,1]*Sdeep_ant[i] + beta2[11,1]*PAR_ant[i]
+    dYdT[i]   <- beta1[2] + 2*beta1a[2]*TAant[i] + beta2[1,1]*VPDant[i] + beta2[5,1]*PPTant[i] + beta2[6,1]*Sshall_ant[i] + beta2[7,1]*Sdeep_ant[i] + beta2[12,1]*PAR_ant[i]
+    dYdP[i]   <- beta1[3] + beta2[2,1]*VPDant[i] + beta2[5,1]*TAant[i] + beta2[8,1]*Sshall_ant[i] + beta2[9,1]*Sdeep_ant[i] + beta2[13,1]*PAR_ant[i]
+    dYdPAR[i]   <- beta1[4] + beta2[11,1]*VPDant[i] + beta2[12,1]*TAant[i] + beta2[13,1]*PPTant[i] + beta2[14,1]*Sshall_ant[i] + beta2[15,1]*Sdeep_ant[i]
+    dYdSs[i]  <- beta1[5] + beta2[3,1]*VPDant[i] + beta2[6,1]*TAant[i] + beta2[8,1]*PPTant[i] + beta2[10,1]*Sdeep_ant[i] + beta2[14,1]*PAR_ant[i]
+    dYdSd[i]  <- beta1[6] + beta2[4,1]*VPDant[i] + beta2[7,1]*TAant[i] + beta2[9,1]*PPTant[i] + beta2[10,1]*Sshall_ant[i] + beta2[15,1]*PAR_ant[i]
     
     # Put all net sensitivities into one array, for easy monitoring
     dYdX[i,1] <- dYdVPD[i]
     dYdX[i,2] <- dYdT[i]
     dYdX[i,3] <- dYdP[i]
-    dYdX[i,4] <- dYdSs[i]
-    dYdX[i,5] <- dYdSd[i]
+    dYdX[i,4] <- dYdPAR[i]
+    dYdX[i,5] <- dYdSs[i]
+    dYdX[i,6] <- dYdSd[i]
   }
   
   # Intercepted E
@@ -304,7 +312,7 @@ model{
   }
   
   # Quadratic effects
-  for(j in 1:2){
+  for(j in 1:Nparms){
     beta1a[j] ~ dnorm(0,0.00001)
   }
   
@@ -319,12 +327,14 @@ model{
       # Priors for unnormalized weights
       dV[j]    ~ dgamma(1,1)
       dT[j]    ~ dgamma(1,1)
+      dPAR[j]    ~ dgamma(1,1)
       dSs[j]   ~ dgamma(1,1)
       dSd[j]   ~ dgamma(1,1)
       
       # Compute normalized weights:
       wV[j]    <- dV[j]/sum(dV[])
       wT[j]    <- dT[j]/sum(dT[])
+      wPAR[j]    <- dPAR[j]/sum(dPAR[])
       wSs[j]   <- dSs[j]/sum(dSs[])
       wSd[j]   <- dSd[j]/sum(dSd[])
   }

@@ -1,22 +1,19 @@
 #!/usr/bin/env Rscript
 
-SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F){
-  
-  if(test==T){
-     newinits=T
-     lowdev=F
-     post_only=F
-  }
+relinf_WUE <- function(dataIN, key, modelv, voi, newinits, lowdev=F, post_only=F){
   
   # Create necessary folders if they do not already exist
-  if(!file.exists("output_coda")) { dir.create("output_coda")}
-  if(!file.exists("output_dfs")) { dir.create("output_dfs")}
-  if(!file.exists("models/inits")) { dir.create("models/inits")}
+  if(!file.exists("output_relinf")) { dir.create("output_relinf")}
+  if(!file.exists("output_relinf/output_coda")) { dir.create("output_relinf/output_coda")}
+  if(!file.exists("output_relinf/output_dfs")) { dir.create("output_relinf/output_dfs")}
+  if(!file.exists("output_relinf/inits")) { dir.create("output_relinf/inits")}
+  if(!file.exists("output_relinf/convergence")) { dir.create("output_relinf/convergence")}
+  if(!file.exists(paste("output_relinf/convergence/", key, "_v", modelv, "_voi", voi, sep = ""))) { dir.create(paste("output_relinf/convergence/", key, "_v", modelv, "_voi", voi, sep = ""))}
   
   # Define filenames
-  initfilename <- paste("./models/inits/inits_", key,"_v", modelv, ".RData", sep = "")
-  zcfilename <- paste("./output_coda/coda_all_", key,"_v", modelv, ".RData", sep = "")
-  dffilename <- paste("./output_dfs/df_sum_", key,"_v", modelv, ".csv", sep = "")
+  initfilename <- paste("./output_relinf/inits/inits_", key,"_v", modelv, ".RData", sep = "")
+  zcfilename <- paste("./output_relinf/output_coda/coda_all_", key,"_v", modelv, ".RData", sep = "")
+  dffilename <- paste("./output_relinf/output_dfs/df_sum_", key,"_v", modelv, ".csv", sep = "")
   
   
   # End for ETpart model (all days)
@@ -120,7 +117,7 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
               ID2 = jIND[,3],
               jlength = nrow(jIND),
               #Y = Y,
-              #Astar = 1, # Astar is the standard deviation parameter
+              Astar = 1, # Astar is the standard deviation parameter
               VPD = as.vector(scale(dataIN$VPD,center=TRUE,scale=TRUE)), # scale function takes vector of values, centers and scales by SD
               Tair = as.vector(scale(dataIN$Tair,center=TRUE,scale=TRUE)),
               P = as.vector(scale(dataIN$P,center=TRUE,scale=TRUE)),
@@ -261,46 +258,27 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
   }
   
   
-  # parameters to track
-  params = c("deviance", # for 3 or 7
-             "beta0","beta1","beta1a","beta2","dYdX",
-             "wP","wSd","wSs","wT","wV","wPAR",
-             "tau.ET", "tau.log.WUE",
-             "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
-             "WUE.pred",
-             "ldx","dx", "R2", "Dsum")
   
-  if(modelv == 1){
-    params = c("deviance",
-               "beta0","beta1","beta1a","beta2","dYdX",
-               "wP",
-               "tau.ET", "tau.log.WUE",
-               "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
-               "WUE.pred",
-               "ldx","dx", "R2", "Dsum")
-  }
-  
-  if(modelv==8){
-    params = c("deviance",
-               "beta0","beta1","beta1a","beta2",
-               "tau.ET", "sig.WUE",
-               "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
-               "WUE.pred",
-               "ldx","dx", "R2", "Dsum")
-  }
-  if(modelv==9){
-    params = c("deviance",
-               "beta0","beta1","beta1a","beta2","dYdX",
-               "wP","wSd","wSs","wT","wV","wPAR",
-               "tau",
-               "Y", "Y.rep",
-               "ldx","dx", "R2", "Dsum")
+  # Remove voi from data to negate in model
+  if(voi==1){ # VPD #1
+    data$VPD[1:length(data$VPD)] <- 0
+  }else if(voi==2){ # Tair #2
+    data$Tair[1:length(data$Tair)] <- 0
+  }else if(voi==3){ # P #3
+    data$P[1:length(data$P)] <- 0
+  }else if(voi==4){ # PAR #4
+    data$PAR[1:length(data$PAR)] <- 0
+  }else if(voi==5){ # Sshall #5
+    data$Sshall[1:length(data$Sshall)] <- 0
+  }else if(voi==6){ # Sdeep #6
+    data$Sdeep[1:length(data$Sdeep)] <- 0
   }
 
 
   
   #####################################################################
   # Part 2: Run JAGS Model (jagsui initializes and runs in one step)
+  
   if(post_only==F){
     
   model.name <- ifelse(key != "vcp", paste("./models/Model_v", modelv, ".R", sep=""), paste("./models/Model_split_v", modelv, ".R", sep=""))
@@ -312,20 +290,14 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
   
   # parameters to track
   params = c("deviance", # for 3 or 7
-             "beta0","beta1","beta1a","beta2","dYdX",
-             "wP","wSd","wSs","wT","wV","wPAR",
+             "beta0","beta1","beta1a","beta2",
              "tau.ET", "tau.log.WUE",
-             "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
-             "WUE.pred",
              "ldx","dx", "R2", "Dsum")
   
-  if(modelv == 1){
+  if(modelv %in% c(1)){
     params = c("deviance",
-               "beta0","beta1","beta1a","beta2","dYdX",
-               "wP",
+               "beta0","beta1","beta1a","beta2",
                "tau.ET", "tau.log.WUE",
-               "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
-               "WUE.pred",
                "ldx","dx", "R2", "Dsum")
   }
   
@@ -333,16 +305,12 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
     params = c("deviance",
                "beta0","beta1","beta1a","beta2",
                "tau.ET", "sig.WUE",
-               "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
-               "WUE.pred",
                "ldx","dx", "R2", "Dsum")
   }
   if(modelv==9){
     params = c("deviance",
-               "beta0","beta1","beta1a","beta2","dYdX",
-               "wP","wSd","wSs","wT","wV","wPAR",
+               "beta0","beta1","beta1a","beta2",
                "tau",
-               "Y", "Y.rep",
                "ldx","dx", "R2", "Dsum")
   }
 
@@ -353,9 +321,9 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
                  parameters.to.save = params,
                  n.chains = 3,
                  n.adapt = 500,
-                 n.thin = ifelse(test==F, 10,1),
-                 n.iter = ifelse(test==F, 50000,100),
-                 parallel = ifelse(test==F, TRUE, FALSE))
+                 n.thin = 10,
+                 n.iter = 50000,
+                 parallel = TRUE)
   end<-proc.time()
   elapsed<- (end-start)/(60*60)
   print("jags done running; hours to completion:")
@@ -365,7 +333,6 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
   # Part 3: Save coda summary
 
   save(jagsui, file = zcfilename)  # save the model output for graphs
-  
   } # end post_only==F
   
   if(post_only==T){
@@ -375,10 +342,6 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
   jm_coda <- jagsui$samples # convert to coda form to work with postjags functions
   
   df_sum <- dumsum(jagsui, type = "jagsUI") # organize the coda object as a dataframe
-  
-  df_sum <- dateconnect(dfobj = df_sum, datevect = YIN$TIMESTAMP, datename = "date", identifier = "ID2", varlist = c("dYdX"))
-  df_sum <- dateconnect(dfobj = df_sum, datevect = YIN$TIMESTAMP, datename = "date", identifier = NULL, varlist = c("WUE.pred", "T.ratio", "T.pred", "ET.pred"))
-  
   write.csv(df_sum, file = dffilename)
   
   #####################################################################
@@ -396,5 +359,11 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
   
   
   #####################################################################
+  
+  # check diagnostics
+  mcmcplot(jm_coda,
+           random = 15,
+           dir = paste("./output_relinf/convergence/", key, "_v", modelv, "_voi", voi, sep = ""),
+           filename = paste("MCMC_", key, "_v", modelv, "_voi", voi, sep = ""))
 
 }

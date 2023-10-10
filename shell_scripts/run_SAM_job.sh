@@ -4,10 +4,9 @@
 
 # strip off the directory paths to get just the filename
 # BASE=`basename $1`
-chain=$1
-site=$2
-seed=$3
-modelv=$4
+site=$1
+seed=$2
+modelv=$3
 
 echo 
 echo "run('$1');"
@@ -15,6 +14,6 @@ date
 
 # Run multicomp script
 #R --no-save < $1
-./scripts/03_script_SAM_HPC.R $chain $site $seed $modelv
+./scripts/02_script_SAM.R $site $seed $modelv
 echo "run('$1'); done"
 date

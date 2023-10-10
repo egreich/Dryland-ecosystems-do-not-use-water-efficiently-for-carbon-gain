@@ -6,6 +6,8 @@
 # BASE=`basename $1`
 site=$1
 seed=$2
+modelv=$3
+voi=$4
 
 echo 
 echo "run('$1');"
@@ -13,6 +15,6 @@ date
 
 # Run multicomp script
 #R --no-save < $1
-./scripts/02_get_inits_SAM_HPC.R $site $seed
+./scripts/03_script_relinf.R $site $seed $modelv $voi
 echo "run('$1'); done"
 date

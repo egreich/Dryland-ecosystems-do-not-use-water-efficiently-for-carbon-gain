@@ -1,6 +1,6 @@
 
 model{
-  for(i in Nstart:N){
+  for(i in Nstart:Nend){
     # Likelihood for ET data
     ET[i] ~ dnorm(ET.pred[i], tau.ET) # the 'true' ET should be somewhere around the predicted ET, with some precision
     ET.rep[i] ~ dnorm(ET.pred[i], tau.ET)
@@ -38,10 +38,10 @@ model{
 
     # Soil evaporation from E1 (CLM 4.5)
     LE4.5[i] <- ifelse(Tsoil[i] >= 0, bowen[i]*((rho[i]*Cp)/gamma[i])*((alpha[i]*(e.sat[i] - e.a[i]))/rah[i]), 0)
-    Esoil4.5[i] <- conv.fact*LE4.5[i]
+    Esoil4.5[i] <- conv.fact[i]*LE4.5[i]
     # Soil evaporation from E2 (CLM 3.5)
     LE3.5[i] <- ifelse(Tsoil[i] >= 0, ((rho[i]*Cp)/gamma[i])*((alpha[i]*(e.sat[i] - e.a[i]))/(rah[i] + rss[i])), 0)
-    Esoil3.5[i] <- conv.fact*LE3.5[i]
+    Esoil3.5[i] <- conv.fact[i]*LE3.5[i]
 
     # e.scalar ~ dunif(0,1) - maybe try this if the fit still isn't that great
     E.model[i] <- p*Esoil4.5[i] + (1-p)*Esoil3.5[i] + Eint[i] + Esnow[i]
@@ -76,7 +76,7 @@ model{
     }
     
     # Squared terms:
-    for(j in 1:2){
+    for(j in 1:Nparms){
       X2.effect[j,i] <- beta1a[j]*pow(X[j,i],2)
     }
     
@@ -92,7 +92,7 @@ model{
     X[1,i] <- VPD[Yday[i]]       ## Also included as squared term
     X[2,i] <- Tair[Yday[i]]        ## Also included as squared term
     X[3,i] <- PPTant[i] # P is the only antecedent term
-    X[4,i] <- PAR[Yday[i]]    ## not included in interactions
+    X[4,i] <- PAR[Yday[i]]
     X[5,i] <- Sshall[Yday[i]]
     X[6,i] <- Sdeep[Yday[i]]
     
@@ -107,23 +107,25 @@ model{
     
     # Calculate net sensitivities (derivative) -- derived quantities
     
-    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPD[Yday[i]] + beta2[1,1]*Tair[Yday[i]] + beta2[2,1]*PPTant[i] + beta2[3,1]*Sshall[Yday[i]] + beta2[4,1]*Sdeep[Yday[i]]
-    dYdT[i]   <- beta1[2] + 2*beta1a[2]*Tair[Yday[i]] + beta2[1,1]*VPD[Yday[i]] + beta2[5,1]*PPTant[i] + beta2[6,1]*Sshall[Yday[i]] + beta2[7,1]*Sdeep[Yday[i]]
-    dYdP[i]   <- beta1[3] + beta2[2,1]*VPD[Yday[i]] + beta2[5,1]*Tair[Yday[i]] + beta2[8,1]*Sshall[Yday[i]] + beta2[9,1]*Sdeep[Yday[i]]
-    dYdSs[i]  <- beta1[4] + beta2[3,1]*VPD[Yday[i]] + beta2[6,1]*Tair[Yday[i]] + beta2[8,1]*PPTant[i] + beta2[10,1]*Sdeep[Yday[i]]
-    dYdSd[i]  <- beta1[5] + beta2[4,1]*VPD[Yday[i]] + beta2[7,1]*Tair[Yday[i]] + beta2[9,1]*PPTant[i] + beta2[10,1]*Sshall[Yday[i]]
+    dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPD[Yday[i]] + beta2[1,1]*Tair[Yday[i]] + beta2[2,1]*PPTant[i] + beta2[3,1]*Sshall[Yday[i]] + beta2[4,1]*Sdeep[Yday[i]]+ beta2[11,1]*PAR[Yday[i]]
+    dYdT[i]   <- beta1[2] + 2*beta1a[2]*Tair[Yday[i]] + beta2[1,1]*VPD[Yday[i]] + beta2[5,1]*PPTant[i] + beta2[6,1]*Sshall[Yday[i]] + beta2[7,1]*Sdeep[Yday[i]]+ beta2[12,1]*PAR[Yday[i]]
+    dYdP[i]   <- beta1[3] + 2*beta1a[2]*PPTant[i] + beta2[2,1]*VPD[Yday[i]] + beta2[5,1]*Tair[Yday[i]] + beta2[8,1]*Sshall[Yday[i]] + beta2[9,1]*Sdeep[Yday[i]]+ beta2[13,1]*PAR[Yday[i]]
+    dYdPAR[i]   <- beta1[4] + 2*beta1a[2]*PAR[Yday[i]] + beta2[11,1]*VPD[Yday[i]] + beta2[12,1]*Tair[Yday[i]] + beta2[13,1]*PPTant[i] + beta2[14,1]*Sshall[Yday[i]] + beta2[15,1]*Sdeep[Yday[i]]
+    dYdSs[i]  <- beta1[5] + 2*beta1a[2]*Sshall[Yday[i]] + beta2[3,1]*VPD[Yday[i]] + beta2[6,1]*Tair[Yday[i]] + beta2[8,1]*PPTant[i] + beta2[10,1]*Sdeep[Yday[i]]+ beta2[14,1]*PAR[Yday[i]]
+    dYdSd[i]  <- beta1[6] + 2*beta1a[2]*Sdeep[Yday[i]] + beta2[4,1]*VPD[Yday[i]] + beta2[7,1]*Tair[Yday[i]] + beta2[9,1]*PPTant[i] + beta2[10,1]*Sshall[Yday[i]] + beta2[15,1]*PAR[Yday[i]]
     
     # Put all net sensitivities into one array, for easy monitoring
     dYdX[i,1] <- dYdVPD[i]
     dYdX[i,2] <- dYdT[i]
     dYdX[i,3] <- dYdP[i]
-    dYdX[i,4] <- dYdSs[i]
-    dYdX[i,5] <- dYdSd[i]
+    dYdX[i,4] <- dYdPAR[i]
+    dYdX[i,5] <- dYdSs[i]
+    dYdX[i,6] <- dYdSd[i]
   }
 
   # Intercepted E
   Eint[1] <- (P[1])*(1 - exp(-k.pred*(LAI[1])))
-  for(i in 2:N){
+  for(i in 2:Nend){
     Eint[i] <- (P.unscaled[i] + P.unscaled[i-1])*(1 - exp(-k.pred*(LAI[i])))
   }
 
@@ -148,7 +150,7 @@ model{
   }
   
   # Quadratic effects
-  for(j in 1:2){
+  for(j in 1:Nparms){
     beta1a[j] ~ dnorm(0,0.00001)
   }
   
@@ -180,10 +182,10 @@ model{
   #sig ~ dunif(0,1000)
   
   # sum across days
-  Dsum <- sum(sqdiff[Nstart:N])
+  Dsum <- sum(sqdiff[Nstart:Nend])
   
   # Compute quantities for calculating Bayesian R2
-  var.pred <- pow(sd(ET.pred[Nstart:N]),2)
+  var.pred <- pow(sd(ET.pred[Nstart:Nend]),2)
   var.resid <- 1/tau.ET
   R2 <- var.pred/(var.pred + var.resid)
   

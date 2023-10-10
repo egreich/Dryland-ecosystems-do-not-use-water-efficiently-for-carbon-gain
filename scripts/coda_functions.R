@@ -1,189 +1,315 @@
 #!/usr/bin/env Rscript
 
-# Function to summarize coda
-coda_rows_to_cols <- function(var_list, coda_sum, colnams = NULL){
+### Helper functions
+# Many of these functions are on github and are edited here in minor ways here
+# Functions by Michael Fell (PostJAGS package): https://github.com/fellmk/PostJAGS
+# Functions by Emma Reich and Biplabendu (Billu) Das (coda4dummies package): https://github.com/egreich/coda4dummies
+
+library(purrr)
+# Create a "not in" function using negate from the purrr package
+`%nin%` <- negate(`%in%`)
+
+
+dumsum <- function(jagsobj, type, col.names = NULL){
   
-  sum_tb <- coda_sum[["statistics"]]
-  quan_tb <- coda_sum[["quantiles"]]
+  # Create a "not in" function using negate from the purrr package
+  `%nin%` <- purrr::negate(`%in%`)
   
-  voi_list <- list()
-  column_names <- list()
-  j = 1
-  
-  for(i in c(1:length(var_list))){
-    
-    searchterm <- paste("^", var_list[i], "\\[", sep = "")
-    
-    # Check if there is more than instance of the variable or not
-    if(length(grep(searchterm, row.names(sum_tb))) == 0){ # if we find nothing
-      searchterm <- paste("^", var_list[i], sep = "") # check if there is only one instance and correct the search term
-      if(length(grep(searchterm, row.names(sum_tb))) == 0){ # if we still find nothing
-        searchterm <- paste(utils::glob2rx(var_list[i]), sep = "") # check if user is using *
-        if(length(grep(searchterm, row.names(sum_tb))) == 0){ # if we still find nothing
-          print(paste("Warning: ", var_list[i], " not found in coda summary output", sep = ""))
-          next
-        }
-      }
-    }
-    
-    voi_list[[j]] <- sum_tb[grep(searchterm, row.names(sum_tb)),1]
-    voi_list[[j+1]] <- quan_tb[grep(searchterm, row.names(quan_tb)),1]
-    voi_list[[j+2]] <- quan_tb[grep(searchterm, row.names(quan_tb)),5]
-    
-    if(is.null(colnams)){
-      
-      column_names[[j]] <- paste("B_", var_list[i], sep = "")
-      column_names[[j+1]] <- paste("ci2.5_", var_list[i], sep = "")
-      column_names[[j+2]] <- paste("ci97.5_", var_list[i], sep = "")
-      
-    }
-    
-    if(!is.null(colnams)){
-      
-      column_names[[j]] <- paste(colnams[i], sep = "")
-      column_names[[j+1]] <- paste("ci2.5_", colnams[i], sep = "")
-      column_names[[j+2]] <- paste("ci97.5_", colnams[i], sep = "")
-      
-    }
-    
-    j = j + 3
-    
+  if(type %nin% c("rjags", "jagsUI")){
+    paste("Please indicate whether this is a rjags or jagsUI samples object")
   }
-  suppressMessages(df <- dplyr::bind_cols(voi_list))
-  colnames(df) <- column_names
-  return(df)
+  
+  
+  if(type == "jagsUI"){
+    
+    if(is.null(jagsobj$samples)){
+      print("This is not a full jagsUI object. If this is just the 'samples' from jagsUI, set 'type' to rjags.")
+    }
+    
+    jagsui <- jagsobj
+    jm_coda <- jagsui$samples # convert to coda form to work with postjags functions
+    
+    # Organize the coda object as a dataframe
+    df_sum <- coda.fast(jm_coda)
+    df_sum <- tibble::rownames_to_column(df_sum, "var")
+    df_sum <- df_sum %>% # make index column
+      mutate(ID = sub('.*\\[(.*)\\]', '\\1', df_sum$var))
+    df_sum$ID <- ifelse(grepl('[[:alpha:]]', df_sum$ID), 1, df_sum$ID) # make ID=1 if there is only 1 instance
+    
+    # make a lists of list of indices
+    IDlist <- strsplit(df_sum$ID, ",") #temp
+    
+    # get number of dims in ID
+    counter <- 1
+    for(i in 1:length(IDlist)){
+      counter <- ifelse(length(IDlist[[i]])>counter, length(IDlist[[i]]), counter)
+    }
+    
+    # create a character vector of column names based on max dim
+    new_columns <- list()
+    for(i in 1:counter){
+      new_columns[[i]] <- paste("ID",i, sep="")
+    }
+    new_columns <- as.character(new_columns)
+    
+    # for each dimension, create a new column with the correct ID
+    df_sum <- df_sum %>%
+      tidyr::separate(ID,new_columns,sep=",")
+    
+    df_sum <- df_sum %>%
+      mutate(var = sub('(.*)\\[.*', '\\1', df_sum$var)) # get rid of numbers in var col
+    
+    if(exists("c")){ # remove c if overwritten
+      rm(c)
+    }
+    
+    # Fix length error with dYdX
+      # extract overlap0
+    overlap0 = do.call(c, jagsui$overlap0)
+    overlap0 = lapply(list, function(x) overlap0[!is.na(overlap0)]) # remove NAs
+    overlap0 = as.data.frame(overlap0)
+    colnames(overlap0)[1] <- "overlap0"
+    overlap0 <- tibble::rownames_to_column(overlap0, "varnum")
+      # extract gel, but don't remove NAs
+    gel = do.call(c, jagsui$Rhat) 
+    gel = as.data.frame(gel)
+    colnames(gel)[1] <- "gel"
+    gel <- tibble::rownames_to_column(gel, "varnum")
+    
+    # join overlap0 and gel, using overlap0 as a guide for what parameters will match the coda object
+    uiinfo <- left_join(overlap0, gel, by = "varnum")
+    
+    df_mod <- df_sum %>%
+      select("var",starts_with("ID"),"mean","median","pc2.5","pc97.5") %>% #reorder columns, drop ID
+      mutate(overlap0 = uiinfo$overlap0, gel = uiinfo$gel)
+    
+    df_mod[,2:(counter+1)] <- lapply(2:(counter+1), function(x) as.numeric(df_mod[[x]])) # make appropraite columns numeric
+    
+    if(!is.null(col.names)){
+      colnames(df_mod)[2:(counter+1)] <- col.names
+    }
+    
+    return(df_mod)
+  }
+  
+  if(type == "rjags"){
+    jm_coda <- jagsobj
+    
+    # Organize the coda object as a dataframe
+    df_sum <- coda.fast(jm_coda)
+    df_sum <- tibble::rownames_to_column(df_sum, "var")
+    df_sum <- df_sum %>% # make index column
+      mutate(ID = sub('.*\\[(.*)\\]', '\\1', df_sum$var))
+    df_sum$ID <- ifelse(grepl('[[:alpha:]]', df_sum$ID), 1, df_sum$ID) # make ID=1 if there is only 1 instance
+    
+    # make a lists of list of indices
+    IDlist <- strsplit(df_sum$ID, ",") #temp
+    
+    # get number of dims in ID
+    counter <- 1
+    for(i in 1:length(IDlist)){
+      counter <- ifelse(length(IDlist[[i]])>counter, length(IDlist[[i]]), counter)
+    }
+    
+    # create a character vector of column names based on max dim
+    new_columns <- list()
+    for(i in 1:counter){
+      new_columns[[i]] <- paste("ID",i, sep="")
+    }
+    new_columns <- as.character(new_columns)
+    
+    # for each dimension, create a new column with the correct ID
+    suppressWarnings({
+      df_sum <- df_sum %>%
+        tidyr::separate(ID,new_columns,sep=",")
+    })
+    
+    df_sum <- df_sum %>%
+      mutate(var = sub('(.*)\\[.*', '\\1', df_sum$var)) # get rid of numbers in var col
+    
+    df_mod <- df_sum %>%
+      select("var",starts_with("ID"),"mean","median","pc2.5","pc97.5") #%>% #reorder columns, drop ID
+    #mutate(overlap0 = do.call(c, jagsui$overlap0), gel = do.call(c, jagsui$Rhat))
+    
+    df_mod[,2:(counter+1)] <- lapply(2:(counter+1), function(x) as.numeric(df_mod[[x]])) # make appropraite columns numeric
+    
+    if(!is.null(col.names)){
+      colnames(df_mod)[2:(counter+1)] <- col.names
+    }
+    
+    return(df_mod)
+  }
   
 }
 
-# Function to extract posterior means, and 2.5 and 97.5 CI quantiles
-# takes a list of variable names and the coda summary
-# all variables in the list MUST have the same length posterior outputs
-coda_pivot_longer <- function(var_list, coda_sum, colnams = NULL){
+lowdevrestart <- function(saved_state, vary_by = 10){
   
-  sum_tb <- coda_sum[["statistics"]]
-  quan_tb <- coda_sum[["quantiles"]]
+  initlow <- saved_state[[3]] # initlow is just the lowest dev chain number
   
-  voi_list <- list()
-  column_names <- list()
-  j = 1
+  # take chain with lowest deviance, and make remaining chains vary around it
+  saved_state[[2]][[1]] = saved_state[[2]][[initlow]] # Best (low dev) initials for chain 1
+  saved_state[[2]][[2]] = lapply(saved_state[[2]][[initlow]],"*",vary_by)
+  saved_state[[2]][[3]] = lapply(saved_state[[2]][[initlow]],"/",vary_by)
   
-  for(i in c(1:length(var_list))){
+  return(saved_state)
+  
+}
+
+findlowdev <- function(codaobj){
+  
+  if(length(codaobj)>3){
+    codaobj <- codaobj$samples
+  }
+  
+  jm_coda <- codaobj
+  # Save inits based on chains with lowest deviance
+  dev_col <- which(colnames(jm_coda[[1]]) == "deviance")
+  dev1<- mean(jm_coda[[1]][,dev_col])
+  dev2<- mean(jm_coda[[2]][,dev_col])
+  dev3<- mean(jm_coda[[3]][,dev_col])
+  dev_min <- min(dev1, dev2, dev3)
+  if(dev1 == dev_min){
+    devin = 1
+  } else if(dev2 == dev_min){
+    devin = 2
+  } else if(dev3 == dev_min){
+    devin = 3
+  }
+  
+  initlow <- devin
+  print(paste("chain with lowest deviance: ", initlow, sep=""))
+  
+  
+  return(initlow) #returns the number of the lowest deviance chain
+  
+}
+
+keepvars <- function(codaobj, to_keep, paramlist, type){
+  
+  if(!is.null(codaobj$samples)){
+    codaobj <- codaobj$samples
+  }
+  
+  # Create a "not in" function using negate from the purrr package
+  `%nin%` <- purrr::negate(`%in%`)
+  
+  remove_vars <- get_remove_index(to_keep, paramlist, type)
+  
+  newinits <- initfind(codaobj, OpenBUGS = FALSE)
+  saved_state <- removevars(initsin = newinits,
+                            variables = remove_vars)
+  
+  initlow <- findlowdev(codaobj) # find the lowest deviance chain
+  saved_state[[3]] <- initlow
+  names(saved_state[[3]]) <- "lowdevchain"
+  
+  return(saved_state)
+  
+}
+
+dateconnect <- function(dfobj, datevect, datename = "date", identifier = NULL, varlist){
+  
+  dflistj <- list() # create an empty list for output
+  for(j in 1:length(varlist)){
+    dfobj2 <- dfobj %>%
+      filter(var == varlist[j])
     
-    searchterm <- paste("^", var_list[i], "\\[", sep = "")
+    if(!is.null(identifier)){ # if the variables we want to connect to dates have the same names but are indexed
+      
+      IDlist <- unique(as.vector(dfobj2[,identifier]))
+      endloop <- length(IDlist)
+      
+      dflisti <- list() # create an empty list
+      for( i in c(1:endloop)){
+        
+        dfobj3 <- dfobj2 %>%
+          filter(ID2==as.numeric(IDlist[i]))
+        
+        #dfobj3 <- dfobj3[-c(1,2),] # temp for testing because I changed the processing btwn runs to include PAR
+        
+        dfobj3[,datename] <- datevect
+        dflisti[[i]] <- dfobj3
+      }
+      dflistj[[j]] <- bind_rows(dflisti)
+      
+    }else{ # if the variables we want to connect to dates are just named differently
+      dfobj3 <- dfobj2
+      dfobj3[,datename] <- datevect
+      dflistj[[j]] <- dfobj3
+    }
+  }
+  
+  dfout <- bind_rows(dflistj)
+  
+  if(datename %in% colnames(dfobj)){ # if the column name already exists
     
-    # Check if there is more than instance of the variable or not
-    if(length(grep(searchterm, row.names(sum_tb))) == 0){ # if we find nothing
-      searchterm <- paste("^", var_list[i], sep = "") # check if there is only one instance and correct the search term
-      if(length(grep(searchterm, row.names(sum_tb))) == 0){ # if we still find nothing
-        searchterm <- paste(utils::glob2rx(var_list[i]), sep = "") # check if user is using *
-        if(length(grep(searchterm, row.names(sum_tb))) == 0){ # if we still find nothing
-          print(paste("Warning: ", var_list[i], " not found in coda summary output", sep = ""))
-          next
-        }
+    dfout[,"tempcol"] <- dfout[,datename] # define a temp column name
+    dfout <- dfout[,!names(dfout)==datename] # remove the datename column, or else it messes with joining
+    
+    dfoutout <- left_join(dfobj, dfout)
+    
+    # when the datename column has an NA, fill it with the tempcol
+    for(k in 1:nrow(dfoutout)){
+      if(is.na(dfoutout[k,datename])){
+        dfoutout[k,datename] <- dfoutout$tempcol[k]
       }
     }
     
-    voi_list[[j]] <- sum_tb[grep(searchterm, row.names(sum_tb)),1]
-    voi_list[[j+1]] <- quan_tb[grep(searchterm, row.names(quan_tb)),1]
-    voi_list[[j+2]] <- quan_tb[grep(searchterm, row.names(quan_tb)),5]
+    dfoutout <- dfoutout %>% # delete the temp column
+      select(-tempcol)
     
-    if(is.null(colnams)){
-      
-      column_names[[j]] <- paste("B_", var_list[i], sep = "")
-      column_names[[j+1]] <- paste("ci2.5_", var_list[i], sep = "")
-      column_names[[j+2]] <- paste("ci97.5_", var_list[i], sep = "")
-      
-    }
-    
-    if(!is.null(colnams)){
-      
-      column_names[[j]] <- paste(colnams[i], sep = "")
-      column_names[[j+1]] <- paste("ci2.5_", colnams[i], sep = "")
-      column_names[[j+2]] <- paste("ci97.5_", colnams[i], sep = "")
-      
-    }
-    
-    j = j + 3
-    
+  }else{
+    dfoutout <- left_join(dfobj, dfout)
   }
-  suppressMessages(df <- dplyr::bind_cols(voi_list))
-  colnames(df) <- column_names
   
-  df <- df %>%
-    rowid_to_column("lagID")
-  
-  # pivot longer posteriors
-  if(!is.null(colnams)){
-    var_list <- colnams
-  }
-  df <- df %>%
-    pivot_longer(cols = c(var_list), names_to = "var")
-  
-  # pivot_longer ci2.5
-  temp <- c()
-  
-  col_list <- unlist(column_names[grep("2.5",column_names)])
-  for( i in c(1:length(var_list))){
-    for( j in c(1:nrow(df))){
-      
-      # if the var name in the df row matches i
-      # then assign the correct ci value to temp
-      if(grepl(var_list[i],df$var[j])){
-        temp2 <- select(df, ends_with(col_list[i]))[j,]
-        temp[[j]] <- as.numeric(temp2)
-      }
-      
-    }
-  }
-  df_longer <- df %>%
-    mutate(ci2.5 = temp) %>%
-    select(-contains(col_list))
-  
-  # pivot_longer ci97.5
-  temp <- c()
-  if(!is.null(colnams)){
-    var_list <- colnams
-  }
-  col_list <- unlist(column_names[grep("97.5",column_names)])
-  for( i in c(1:length(var_list))){
-    for( j in c(1:nrow(df_longer))){
-      
-      # if the var name in the df row matches i
-      # then assign the correct ci value to temp
-      if(grepl(var_list[i],df_longer$var[j])){
-        temp2 <- select(df_longer, ends_with(col_list[i]))[j,]
-        temp[[j]] <- as.numeric(temp2)
-      }
-      
-    }
-  }
-  df_longer <- df_longer %>%
-    mutate(ci97.5 = temp) %>%
-    select(-contains(col_list))
-  
-  #df_longer$ci2.5 <- as.numeric(df_longer$ci2.5)
-  #df_longer$ci97.5 <- as.numeric(df_longer$ci97.5)
-  
-  
-  return(df_longer)
+  return(dfoutout)
   
 }
 
 
-# function that returns list of variables to remove (to be used with Mike Fell's get_remove_index function)
-get_remove_index <- function(to_keep, list){
-  list <- list[list != "deviance"] # remove deviance
-  list <- sort(list, method = "radix")
-  out_list <- c()
-  for(j in c(1:length(list))){
-    if(list[j] %in% to_keep){
-      out_list[j] = NA
-    } else{
-      out_list[j] = j
-    }
+
+# function that finds the index number for variables from rjags or jagsUI output
+# intended to work with Michael Fell's "removevars" function
+# Inputs: 
+# to_keep: string of variable names
+# list: list of all parameters tracked
+# type: rjags or jagsUI
+# Output: list of index values for all variables NOT included in the input
+get_remove_index <- function(to_keep, list, type){
+  
+  if(type %nin% c("rjags", "jagUI")){
+    paste("Please indicate whether this is a rjags or jagsUI samples object")
   }
-  out_list <- out_list[!is.na(out_list)]
-  out_list
+  
+  if(type == "rjags"){
+    list <- list[list != "deviance"] # remove deviance
+    list <- sort(list, method = "radix")
+    out_list <- c()
+    for(j in c(1:length(list))){
+      if(list[j] %in% to_keep){
+        out_list[j] = NA
+      } else{
+        out_list[j] = j
+      }
+    }
+    out_list <- out_list[!is.na(out_list)]
+    out_list
+  }
+  
+  if(type == "jagsUI"){
+    list <- list[list != "deviance"] # remove deviance
+    out_list <- c()
+    for(j in c(1:length(list))){
+      if(list[j] %in% to_keep){
+        out_list[j] = NA
+      } else{
+        out_list[j] = j
+      }
+    }
+    out_list <- out_list[!is.na(out_list)]
+    out_list
+  }
+  
 }
 
 ###############################################################################

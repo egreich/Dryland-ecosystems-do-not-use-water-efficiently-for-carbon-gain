@@ -5,10 +5,8 @@ This repository contains models and code to run the DEPART-SAM model. An explana
 1. Scripts
 
 2. Models
-  - v1 no antecedent conditions, no season main effects, no season weights
-  - v2 no antecedent conditions, yes season main effects, yes season weights
-  - v3 yes antecedent conditions, no season main effects, no season weights
-  - v4 yes antecedent conditions, no season main effects, yes season weights
-  - v5 yes antecedent conditions, yes season main effects, yes season weights
-  - v6 yes antecedent conditions, yes season main effects, yes season weights, modeled hierarchically
-  - v7 DEPART model without environmental parameters
+  - v1 no antecedent conditions
+  - v3 yes antecedent conditions
+  - v7 antecedent conditions but only go 7 days into the past
+  - v8 simple DEPART model without environmental parameters (NULL model)
+  - v9 GPP response variable model
