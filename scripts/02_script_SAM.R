@@ -20,7 +20,7 @@ JAGS.seed<-ceiling(runif(1,1,10000000))
 
 test = F
 if(test==T){
-  site=6
+  site=3
   modelv=3
 }
 
@@ -71,7 +71,7 @@ load(paste("./clean_data/dataIN_",key,".RData",sep=""))
 dataIN <- get(paste("dataIN_",key,sep="")) # daily time series
 
 ### Run the model ###
-SAM_WUE(dataIN, key, modelv, newinits=F, post_only=T)
+SAM_WUE(dataIN, key, modelv, newinits=T, lowdev=F)
 
 ### create mcmc plots ###
 check_convergence(site,modelv)

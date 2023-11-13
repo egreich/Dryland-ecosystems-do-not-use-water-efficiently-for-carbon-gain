@@ -3,8 +3,8 @@
 ##SBATCH --workdir
 #SBATCH --output=/scratch/egr65/SAM/log/reinf_%A_%a.log
 ##SBATCH --cpus-per-task=3
-#SBATCH --time=40:00:00
-#SBATCH --mem=80000
+#SBATCH --time=70:00:00
+#SBATCH --mem=30000
 #SBATCH --mail-type=all
 #SBATCH --mail-user=egr65@nau.edu
 #SBATCH --array=1-48

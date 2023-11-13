@@ -66,5 +66,5 @@ load(paste("./clean_data/dataIN_",key,".RData",sep=""))
 dataIN <- get(paste("dataIN_",key,sep="")) # daily time series
 
 ### Run the model ###
-relinf_WUE(dataIN, key, modelv, voi, newinits=T, post_only=T)
+relinf_WUE(dataIN, key, modelv, voi, newinits=T)
 

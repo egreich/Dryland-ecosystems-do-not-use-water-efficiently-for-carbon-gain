@@ -88,7 +88,7 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
               ET = YIN$ET,
               GPP = YIN$GPP,
               ws = YIN$ws,
-              conv.fact = (2.501 - 0.00237*YIN$Tair)*10^6, # latent heat of vaporization
+              conv.fact = (60*60*24)/((2.501 - 0.00237*YIN$Tair)*10^6), # conversion from sec to day/latent heat of vaporization  (J kg-1)
               rho = YIN$pair,
               Ri = YIN$Ri,
               rah_unstable = YIN$rah, # in the data, rah is just rah_unstable when appropriate. We are letting rah_stable vary (stochastic) so that's why we read this in.
@@ -242,16 +242,16 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
       load(initfilename)
       
       if(lowdev == T){
-        if(length(saved_state)==3){ # temp
-          saved_state <- lowdevrestart(saved_state, vary_by = 2)
+        if(length(saved.state)==3){ # temp
+          saved.state <- lowdevrestart(saved.state, vary_by = 1.5)
         }else if(file.exists(initlowfilename)){ # temp
           load(initlowfilename) # initlow object is just the lowest dev chain number, 1,2, or 3
-          saved_state[[3]] <- initlow
-          saved_state <- lowdevrestart(saved_state, vary_by = 2)
+          saved.state[[3]] <- initlow
+          saved.state <- lowdevrestart(saved.state, vary_by = 1.5)
         }
       }
       
-      initslist <- saved_state[[2]]
+      initslist <- saved.state[[2]]
       
     }else if(!file.exists(initfilename)){
       initslist <- inits
@@ -268,7 +268,7 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
              "tau.ET", "tau.log.WUE",
              "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
              "WUE.pred",
-             "ldx","dx", "R2", "Dsum")
+             "ldx","dx", "R2", "Dsum", "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp")
   
   if(modelv == 1){
     params = c("deviance",
@@ -277,7 +277,7 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
                "tau.ET", "tau.log.WUE",
                "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
                "WUE.pred",
-               "ldx","dx", "R2", "Dsum")
+               "ldx","dx", "R2", "Dsum", "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp")
   }
   
   if(modelv==8){
@@ -286,7 +286,7 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
                "tau.ET", "sig.WUE",
                "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
                "WUE.pred",
-               "ldx","dx", "R2", "Dsum")
+               "ldx","dx", "R2", "Dsum", "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp")
   }
   if(modelv==9){
     params = c("deviance",
@@ -294,7 +294,7 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
                "wP","wSd","wSs","wT","wV","wPAR",
                "tau",
                "Y", "Y.rep",
-               "ldx","dx", "R2", "Dsum")
+               "ldx","dx", "R2", "Dsum", "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp")
   }
 
 
@@ -387,8 +387,8 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
   # inits to save
   init_names = names(initslist[[1]])
 
-  # create a saved_state object with initials for next run
-  # saved_state[[3]] is the chain number with lowest deviance
+  # create a saved.state object with initials for next run
+  # saved.state[[3]] is the chain number with lowest deviance
   saved.state <- keepvars(codaobj = jm_coda, to_keep = init_names, paramlist = params, type="jagsUI")
   
   # save

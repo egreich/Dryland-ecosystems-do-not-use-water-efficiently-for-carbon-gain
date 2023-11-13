@@ -77,7 +77,7 @@ model{
     }
     
     # Squared terms:
-    for(j in 1:Nparms2){
+    for(j in 1:Nparms){
       X2.effect[j,i] <- beta1a[j]*pow(X[j,i],2)
     }
     
@@ -166,21 +166,26 @@ model{
   
   # Overall intercept:
   beta0 ~ dnorm(0,0.00001)
+  beta0_p_temp[1] <- step(beta0) # Bayesian p-values
   
   # Main effects:
   for(j in 1:Nparms){
     beta1[j] ~ dnorm(0,0.00001)
+    beta1_p_temp[j] <- step(beta1[j]) # Bayesian p-values
   }
   
   # Quadratic effects
   for(j in 1:Nparms){
     beta1a[j] ~ dnorm(0,0.00001)
+    beta1a_p_temp[j] <- step(beta1a[j]) # Bayesian p-values
   }
   
   # Two-way interaction effects:
   for(j in 1:jlength){
     beta2[j,1] ~ dnorm(0,0.00001)
+    beta2_p_temp[j] <- step(beta2[j,1]) # Bayesian p-values
   }
+  
   
   # Priors for importance weights for each covariate, "delta" or gamma "trick"
   # for imposing Dirichlet(1) priors for the weights:  
@@ -234,10 +239,6 @@ model{
   tau.ET ~ dgamma(0.1,0.1) # since this is associated with the data model for ET.
   sig.ET <- 1/sqrt(tau.ET)
   tau.log.WUE ~ dgamma(0.01,0.01)
-  #sig.WUE ~ dunif(0,20)
-  #tau.WUE <- pow(sig.WUE,-2)
-  #sig.ecostress ~ dunif(0,10)
-  #tau.ecostress <- pow(sig.ecostress,-2)
   
   # Priors for stochastic parameters for E equations
   vk.pred ~ dunif(0.35, 0.42) # the von Karman constant is usually 0.40

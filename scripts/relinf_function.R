@@ -11,9 +11,9 @@ relinf_WUE <- function(dataIN, key, modelv, voi, newinits, lowdev=F, post_only=F
   if(!file.exists(paste("output_relinf/convergence/", key, "_v", modelv, "_voi", voi, sep = ""))) { dir.create(paste("output_relinf/convergence/", key, "_v", modelv, "_voi", voi, sep = ""))}
   
   # Define filenames
-  initfilename <- paste("./output_relinf/inits/inits_", key,"_v", modelv, ".RData", sep = "")
-  zcfilename <- paste("./output_relinf/output_coda/coda_all_", key,"_v", modelv, ".RData", sep = "")
-  dffilename <- paste("./output_relinf/output_dfs/df_sum_", key,"_v", modelv, ".csv", sep = "")
+  initfilename <- paste("./output_relinf/inits/inits_", key,"_v", modelv, "_voi", voi, ".RData", sep = "")
+  zcfilename <- paste("./output_relinf/output_coda/coda_all_", key,"_v", modelv, "_voi", voi, ".RData", sep = "")
+  dffilename <- paste("./output_relinf/output_dfs/df_sum_", key,"_v", modelv, "_voi", voi, ".csv", sep = "")
   
   
   # End for ETpart model (all days)
@@ -85,7 +85,7 @@ relinf_WUE <- function(dataIN, key, modelv, voi, newinits, lowdev=F, post_only=F
               ET = YIN$ET,
               GPP = YIN$GPP,
               ws = YIN$ws,
-              conv.fact = (2.501 - 0.00237*YIN$Tair)*10^6, # latent heat of vaporization
+              conv.fact = (60*60*24)/((2.501 - 0.00237*YIN$Tair)*10^6), # latent heat of vaporization
               rho = YIN$pair,
               Ri = YIN$Ri,
               rah_unstable = YIN$rah, # in the data, rah is just rah_unstable when appropriate. We are letting rah_stable vary (stochastic) so that's why we read this in.
@@ -239,16 +239,16 @@ relinf_WUE <- function(dataIN, key, modelv, voi, newinits, lowdev=F, post_only=F
       load(initfilename)
       
       if(lowdev == T){
-        if(length(saved_state)==3){ # temp
-          saved_state <- lowdevrestart(saved_state, vary_by = 2)
+        if(length(saved.state)==3){ # temp
+          saved.state <- lowdevrestart(saved.state, vary_by = 2)
         }else if(file.exists(initlowfilename)){ # temp
           load(initlowfilename) # initlow object is just the lowest dev chain number, 1,2, or 3
-          saved_state[[3]] <- initlow
-          saved_state <- lowdevrestart(saved_state, vary_by = 2)
+          saved.state[[3]] <- initlow
+          saved.state <- lowdevrestart(saved.state, vary_by = 2)
         }
       }
       
-      initslist <- saved_state[[2]]
+      initslist <- saved.state[[2]]
       
     }else if(!file.exists(initfilename)){
       initslist <- inits
@@ -292,26 +292,26 @@ relinf_WUE <- function(dataIN, key, modelv, voi, newinits, lowdev=F, post_only=F
   params = c("deviance", # for 3 or 7
              "beta0","beta1","beta1a","beta2",
              "tau.ET", "tau.log.WUE",
-             "ldx","dx", "R2", "Dsum")
+             "ldx","dx", "R2", "Dsum", "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp")
   
   if(modelv %in% c(1)){
     params = c("deviance",
                "beta0","beta1","beta1a","beta2",
                "tau.ET", "tau.log.WUE",
-               "ldx","dx", "R2", "Dsum")
+               "ldx","dx", "R2", "Dsum", "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp")
   }
   
   if(modelv==8){
     params = c("deviance",
                "beta0","beta1","beta1a","beta2",
                "tau.ET", "sig.WUE",
-               "ldx","dx", "R2", "Dsum")
+               "ldx","dx", "R2", "Dsum", "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp")
   }
   if(modelv==9){
     params = c("deviance",
                "beta0","beta1","beta1a","beta2",
                "tau",
-               "ldx","dx", "R2", "Dsum")
+               "ldx","dx", "R2", "Dsum", "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp")
   }
 
   start<-proc.time()
@@ -350,8 +350,8 @@ relinf_WUE <- function(dataIN, key, modelv, voi, newinits, lowdev=F, post_only=F
   # inits to save
   init_names = names(initslist[[1]])
 
-  # create a saved_state object with initials for next run
-  # saved_state[[3]] is the chain number with lowest deviance
+  # create a saved.state object with initials for next run
+  # saved.state[[3]] is the chain number with lowest deviance
   saved.state <- keepvars(codaobj = jm_coda, to_keep = init_names, paramlist = params, type="jagsUI")
   
   # save

@@ -305,20 +305,24 @@ model{
   
   # Overall intercept:
   beta0 ~ dnorm(0,0.00001)
+  beta0_p_temp[1] <- step(beta0) # Bayesian p-values
   
   # Main effects:
   for(j in 1:Nparms){
     beta1[j] ~ dnorm(0,0.00001)
+    beta1_p_temp[j] <- step(beta1[j]) # Bayesian p-values
   }
   
   # Quadratic effects
   for(j in 1:Nparms){
     beta1a[j] ~ dnorm(0,0.00001)
+    beta1a_p_temp[j] <- step(beta1a[j]) # Bayesian p-values
   }
   
   # Two-way interaction effects:
   for(j in 1:jlength){
     beta2[j,1] ~ dnorm(0,0.00001)
+    beta2_p_temp[j] <- step(beta2[j,1]) # Bayesian p-values
   }
   
   # Priors for importance weights for each covariate, "delta" or gamma "trick"
