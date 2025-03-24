@@ -9,9 +9,10 @@
 # Suppress folders
 input_data/*
 clean_data/*
-output_CWC/*
-output_coda/*
 output_dfs/*
+
+
+output_coda/*
 models/convergence/*
 models/inits/*
 plots/*
@@ -19,7 +20,11 @@ plots/*
 # git sub repo
 archive/*
 archive
+scripts/archived/*
+models/archived/*
 
 output_dfs_old/*
 models/convergence_old/*
 plots_old/*
+
+scripts/04_poster_output.R

@@ -115,10 +115,11 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
               Nlag = Nlag,
               NlagP = NlagP, 
               Nparms = 6, # Nparms is the number of driving variables included to calculate main effects
+              Nparms2 = 2, # Nparms2 is the number of terms included to calculate squared effects
               Yday = YIN$dayind, # Choose column in YIN that provides indices linking response variables with covariates
               ID1 = jIND[,2], 
               ID2 = jIND[,3],
-              jlength = nrow(jIND),
+              jlength = nrow(jIND), # jlength is the number of terms included to calculate interactive effects
               #Y = Y,
               #Astar = 1, # Astar is the standard deviation parameter
               VPD = as.vector(scale(dataIN$VPD,center=TRUE,scale=TRUE)), # scale function takes vector of values, centers and scales by SD
@@ -189,7 +190,7 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
   
   # Notes: The code below is indexed numerically, which you will have to pay attention to as you change covariates of interest
   # Squared terms calculated for VPD and Tair
-  X1a = cbind(X1[,1]^2, X1[,2]^2, X1[,3]^2, X1[,4]^2, X1[,5]^2, X1[,6]^2) 
+  X1a = cbind(X1[,1]^2, X1[,2]^2) 
   # Put all covariates together;
   # Interactions incorporated into linear model used to estimate initial values
   X2  = cbind(X1[,1]*X1[,2], X1[,1]*X1[,3], X1[,1]*X1[,5], X1[,1]*X1[,6], X1[,2]*X1[,3], X1[,2]*X1[,5], X1[,2]*X1[,6], 
@@ -197,19 +198,19 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
               X1[,4]*X1[,1], X1[,4]*X1[,2], X1[,4]*X1[,3], X1[,4]*X1[,5], X1[,4]*X1[,6])
   # Fit simple linear model
   fit <- lm(Y[Nstart:Nend] ~ X1[,1] + X1[,2] + X1[,3] + X1[,4] + X1[,5] + X1[,6] + # main effects
-              X1a[,1] + X1a[,2] + X1a[,3] + X1a[,4] + X1a[,5] + X1a[,6] + # squared
+              X1a[,1] + X1a[,2] + # squared
               X2[,1] + X2[,2] + X2[,3] + X2[,4] + X2[,5] + X2[,6] + X2[,7] + X2[,8] + X2[,9] + X2[,10] + X2[,11] + X2[,12] + X2[,13] + X2[,14] + X2[,15]) # interactions
   # Extract coefficient estimates:
   beta0  = fit$coefficients[1] # the intercept
   beta1  = fit$coefficients[2:7] # main effects
-  beta1a = fit$coefficients[8:13] # squared effects
+  beta1a = fit$coefficients[8:9] # squared effects
   # interactions, only written like this because we added on interactions later, and this helps us keep track of indexing
   beta2 <- matrix(data = 0, nrow = 15, ncol = 1)
-  beta2[1:4,1]   = as.numeric(fit$coefficients[14:17]) # X1[,1] interactions (VPD with Tair, P, and soil moistures)
-  beta2[5:7,1]   = as.numeric(fit$coefficients[18:20]) # X1[,2] interactions (Tair with P and soil moistures)
-  beta2[8:9,1]   = as.numeric(fit$coefficients[21:22]) # X1[,3] interactions (P and soil moistures)
-  beta2[10,1]   = as.numeric(fit$coefficients[23]) # X1[,5]*X1[,6] interaction (soil moistures)
-  beta2[11:15,1]   = as.numeric(fit$coefficients[24:28]) # X1[,4] interactions (PAR) with all variables
+  beta2[1:4,1]   = as.numeric(fit$coefficients[10:13]) # X1[,1] interactions (VPD with Tair, P, and soil moistures)
+  beta2[5:7,1]   = as.numeric(fit$coefficients[14:16]) # X1[,2] interactions (Tair with P and soil moistures)
+  beta2[8:9,1]   = as.numeric(fit$coefficients[17:18]) # X1[,3] interactions (P and soil moistures)
+  beta2[10,1]   = as.numeric(fit$coefficients[19]) # X1[,5]*X1[,6] interaction (soil moistures)
+  beta2[11:15,1]   = as.numeric(fit$coefficients[20:24]) # X1[,4] interactions (PAR) with all variables
   
   # Create initials based on the above estimates:
   # Note: These are only used when we don't already have initials saved from a previous run
@@ -259,12 +260,24 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
   }else if(newinits==T){
     initslist <- inits
   }
+
+
   
+  #####################################################################
+  # Part 2: Run JAGS Model (jagsui initializes and runs in one step)
+  if(post_only==F){
+    
+  model.name <- ifelse(key != "vcp", paste("./models/Model_v", modelv, ".R", sep=""), paste("./models/Model_split_v", modelv, ".R", sep=""))
+  if(modelv==7){ # if running model 7, use the code for 3
+    model.name <- ifelse(key != "vcp", paste("./models/Model_v", 3, ".R", sep=""), paste("./models/Model_split_v", 3, ".R", sep=""))
+  }
   
+  # Choose the parameters to monitor.
   # parameters to track
   params = c("deviance", # for 3 or 7
              "beta0","beta1","beta1a","beta2","dYdX",
              "wP","wSd","wSs","wT","wV","wPAR",
+             "VPDant", "TAant", "PPTant", "PAR_ant", "Sshall_ant", "Sdeep_ant",
              "tau.ET", "tau.log.WUE",
              "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
              "WUE.pred",
@@ -297,55 +310,6 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
                "ldx","dx", "R2", "Dsum", "beta0_p_temp", "beta1_p_temp", "beta1a_p_temp", "beta2_p_temp")
   }
 
-
-  
-  #####################################################################
-  # Part 2: Run JAGS Model (jagsui initializes and runs in one step)
-  if(post_only==F){
-    
-  model.name <- ifelse(key != "vcp", paste("./models/Model_v", modelv, ".R", sep=""), paste("./models/Model_split_v", modelv, ".R", sep=""))
-  if(modelv==7){ # if running model 7, use the code for 3
-    model.name <- ifelse(key != "vcp", paste("./models/Model_v", 3, ".R", sep=""), paste("./models/Model_split_v", 3, ".R", sep=""))
-  }
-  
-  # Choose the parameters to monitor.
-  
-  # parameters to track
-  params = c("deviance", # for 3 or 7
-             "beta0","beta1","beta1a","beta2","dYdX",
-             "wP","wSd","wSs","wT","wV","wPAR",
-             "tau.ET", "tau.log.WUE",
-             "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
-             "WUE.pred",
-             "ldx","dx", "R2", "Dsum")
-  
-  if(modelv == 1){
-    params = c("deviance",
-               "beta0","beta1","beta1a","beta2","dYdX",
-               "wP",
-               "tau.ET", "tau.log.WUE",
-               "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
-               "WUE.pred",
-               "ldx","dx", "R2", "Dsum")
-  }
-  
-  if(modelv==8){
-    params = c("deviance",
-               "beta0","beta1","beta1a","beta2",
-               "tau.ET", "sig.WUE",
-               "ET", "E.model", "ET.pred", "T.pred", "T.ratio",
-               "WUE.pred",
-               "ldx","dx", "R2", "Dsum")
-  }
-  if(modelv==9){
-    params = c("deviance",
-               "beta0","beta1","beta1a","beta2","dYdX",
-               "wP","wSd","wSs","wT","wV","wPAR",
-               "tau",
-               "Y", "Y.rep",
-               "ldx","dx", "R2", "Dsum")
-  }
-
   start<-proc.time()
   jagsui <- jags(data = data,
                  inits = initslist,
@@ -353,7 +317,7 @@ SAM_WUE <- function(dataIN, key, modelv, newinits, lowdev=F, post_only=F, test=F
                  parameters.to.save = params,
                  n.chains = 3,
                  n.adapt = 500,
-                 n.thin = ifelse(test==F, 10,1),
+                 n.thin = ifelse(test==F, 12,1),
                  n.iter = ifelse(test==F, 50000,100),
                  parallel = ifelse(test==F, TRUE, FALSE))
   end<-proc.time()

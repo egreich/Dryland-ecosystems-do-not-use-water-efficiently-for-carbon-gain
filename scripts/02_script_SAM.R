@@ -71,7 +71,7 @@ load(paste("./clean_data/dataIN_",key,".RData",sep=""))
 dataIN <- get(paste("dataIN_",key,sep="")) # daily time series
 
 ### Run the model ###
-SAM_WUE(dataIN, key, modelv, newinits=T, lowdev=F)
+SAM_WUE(dataIN, key, modelv, newinits=F, lowdev=F, post_only=F)
 
 ### create mcmc plots ###
 check_convergence(site,modelv)

@@ -58,10 +58,10 @@ model{
     ET.int[i] <- ifelse(ET.pred[i]==0, 0.0000000000000001, ET.pred[i]) # intermediate calculated to ensure the denominator is not 0
     T.ratio[i] <- ifelse(ET.pred[i]==0, 0, T.pred[i]/ET.int[i])
     
-    # Likelihood (? not really) of predicted WUE values
-    # WUE.log when combining with ETpart model, transform WUE to log scale
+    # Predicted WUE values
+    # When combining with ETpart model, transform WUE to log scale
     WUE.pred[i] <- exp(log.WUE[i])
-    #log.WUE[i] ~ dnorm(mu.log.WUE[i], tau.log.WUE)
+    
     # Regression (mean) model
     log.WUE[i] <- beta0 + main.effects[i] + squared.terms[i] + interactions[i] 
     
@@ -77,7 +77,7 @@ model{
     }
     
     # Squared terms:
-    for(j in 1:Nparms){
+    for(j in 1:Nparms2){
       X2.effect[j,i] <- beta1a[j]*pow(X[j,i],2)
     }
     
@@ -132,10 +132,10 @@ model{
     
     dYdVPD[i] <- beta1[1] + 2*beta1a[1]*VPDant[i] + beta2[1,1]*TAant[i] + beta2[2,1]*PPTant[i] + beta2[3,1]*Sshall_ant[i] + beta2[4,1]*Sdeep_ant[i] + beta2[11,1]*PAR_ant[i]
     dYdT[i]   <- beta1[2] + 2*beta1a[2]*TAant[i] + beta2[1,1]*VPDant[i] + beta2[5,1]*PPTant[i] + beta2[6,1]*Sshall_ant[i] + beta2[7,1]*Sdeep_ant[i] + beta2[12,1]*PAR_ant[i]
-    dYdP[i]   <- beta1[3] + 2*beta1a[3]*PPTant[i] + beta2[2,1]*VPDant[i] + beta2[5,1]*TAant[i] + beta2[8,1]*Sshall_ant[i] + beta2[9,1]*Sdeep_ant[i] + beta2[13,1]*PAR_ant[i]
-    dYdPAR[i]   <- beta1[4] + 2*beta1a[4]*PAR_ant[i] + beta2[11,1]*VPDant[i] + beta2[12,1]*TAant[i] + beta2[13,1]*PPTant[i] + beta2[14,1]*Sshall_ant[i] + beta2[15,1]*Sdeep_ant[i]
-    dYdSs[i]  <- beta1[5] + 2*beta1a[5]*Sshall_ant[i] + beta2[3,1]*VPDant[i] + beta2[6,1]*TAant[i] + beta2[8,1]*PPTant[i] + beta2[10,1]*Sdeep_ant[i] + beta2[14,1]*PAR_ant[i]
-    dYdSd[i]  <- beta1[6] + 2*beta1a[6]*Sdeep_ant[i] + beta2[4,1]*VPDant[i] + beta2[7,1]*TAant[i] + beta2[9,1]*PPTant[i] + beta2[10,1]*Sshall_ant[i] + beta2[15,1]*PAR_ant[i]
+    dYdP[i]   <- beta1[3] + beta2[2,1]*VPDant[i] + beta2[5,1]*TAant[i] + beta2[8,1]*Sshall_ant[i] + beta2[9,1]*Sdeep_ant[i] + beta2[13,1]*PAR_ant[i]
+    dYdPAR[i]   <- beta1[4] + beta2[11,1]*VPDant[i] + beta2[12,1]*TAant[i] + beta2[13,1]*PPTant[i] + beta2[14,1]*Sshall_ant[i] + beta2[15,1]*Sdeep_ant[i]
+    dYdSs[i]  <- beta1[5] + beta2[3,1]*VPDant[i] + beta2[6,1]*TAant[i] + beta2[8,1]*PPTant[i] + beta2[10,1]*Sdeep_ant[i] + beta2[14,1]*PAR_ant[i]
+    dYdSd[i]  <- beta1[6] + beta2[4,1]*VPDant[i] + beta2[7,1]*TAant[i] + beta2[9,1]*PPTant[i] + beta2[10,1]*Sshall_ant[i] + beta2[15,1]*PAR_ant[i]
     
     # Put all net sensitivities into one array, for easy monitoring
     dYdX[i,1] <- dYdVPD[i]
@@ -175,7 +175,7 @@ model{
   }
   
   # Quadratic effects
-  for(j in 1:Nparms){
+  for(j in 1:Nparms2){
     beta1a[j] ~ dnorm(0,0.00001)
     beta1a_p_temp[j] <- step(beta1a[j]) # Bayesian p-values
   }
@@ -238,7 +238,7 @@ model{
   # Priors for ET and WUE:
   tau.ET ~ dgamma(0.1,0.1) # since this is associated with the data model for ET.
   sig.ET <- 1/sqrt(tau.ET)
-  tau.log.WUE ~ dgamma(0.01,0.01)
+  #tau.log.WUE ~ dgamma(0.01,0.01)
   
   # Priors for stochastic parameters for E equations
   vk.pred ~ dunif(0.35, 0.42) # the von Karman constant is usually 0.40
