@@ -7,9 +7,7 @@
 .DS_Store
 
 # Suppress folders
-input_data/*
-clean_data/*
-output_dfs/*
+
 
 
 output_coda/*
